@@ -56,7 +56,7 @@ def design_lug(geometry,loads,config):
     W_vals = np.linspace(W_min, W_max, N)
     T_vals = np.linspace(T_min, T_max, N)
     D_grid, W_grid, T_grid = np.meshgrid(D_vals, W_vals, T_vals, indexing='ij')
-    cube = (D_grid + W_grid + T_grid < 1.0).astype(float)
+    
     
     
     #edge distance
