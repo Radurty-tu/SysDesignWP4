@@ -13,7 +13,14 @@ Outputs:
     VERIFICATION
 '''
 import numpy as np
+import math
 import json
+
+def area(D,W,T):
+    At=T*(W-D)
+    Abr=T*(W-D)/2
+    return At, Abr
+
 def design_lug(geometry,loads,config):
     '''
     PLAN:
@@ -34,7 +41,7 @@ def design_lug(geometry,loads,config):
     W_max = geometry["W_max"]
     T_min = geometry["T_min"]
     T_max = geometry["T_max"]
-    N     = geometry["N"]
+    N  = geometry["N"]
     
     FX = loads["FX"]
     FY = loads["FY"]
@@ -42,45 +49,145 @@ def design_lug(geometry,loads,config):
     F1 = loads["F1"]
     MX = loads["MX"]
     
-    FTY  = config["FTY" ]
-    FTU  = config["FTU" ]
-    FBR  = config["FBR" ]
-    KT   = config["KT"  ]
-    KBRY = config["KBRY"]
-    SF   = config["SF"  ]
-    FMIS = config["FMIS"]
+    FTU= config["FTU"]
+    KT=config["KT"]
+    KBR=config["KBR"]
+    KTU=config["KTU"]
+    
+    #Numpy section
+    D_arr = np.linspace(D_min, D_max, N)
+    W_arr = np.linspace(W_min, W_max, N)
+    T_arr = np.linspace(T_min, T_max, N)
+    
+    D_grid, W_grid, T_grid = np.meshgrid(D_arr, W_arr, T_arr, indexing="ij")
+    At_grid, Abr_grid = area(D_grid, W_grid, T_grid)
+    
+    Pu_grid   = KT * FTU * At_grid
+    Pbru_grid = KBR * FTU * Abr_grid
+    P_ult_grid = np.minimum(Pu_grid, Pbru_grid)
+    Ptu_grid = KTU * FTU * Abr_grid   
+    Ra_grid = (FY + F1) / (P_ult_grid * 2.0)
+    Rtr_grid = np.sqrt(FZ**2 + FX**2)/(Ptu_grid)/2
+    Metric_grid = Ra_grid**1.6 + Rtr_grid**1.6
+    MS_grid = np.zeros_like(Metric_grid)
+    safe_mask = Metric_grid < 1.0
+    MS_grid[safe_mask] = 1.0 / (Metric_grid[safe_mask]**0.625) - 1.0
+    RESULT_grid = np.stack((MS_grid, D_grid, W_grid, T_grid), axis=-1)
     
     
-    #Numpy
-    D_vals = np.linspace(D_min, D_max, N)
-    W_vals = np.linspace(W_min, W_max, N)
-    T_vals = np.linspace(T_min, T_max, N)
-    D_grid, W_grid, T_grid = np.meshgrid(D_vals, W_vals, T_vals, indexing='ij')
+    #save
     
+    output_path = "../Data/lug_scan.npz"
+
+    np.savez(output_path,
+            result=RESULT_grid,
+            D_arr=D_arr,
+            W_arr=W_arr,
+            T_arr=T_arr)
+
+
+
+# we have R_a^1.6+R_tr^1.6 <1 for not failure
+#Calculate ultimate axial load
+#calculate ultimate transverse load
+#use the stupid equation where R=(P/PU)
+#the ultimate loads are fucked
+#output safety factor MS= 1/(sum)
     
-    
-    #edge distance
-    #E=(W-D1)/2
-    #Net-Tension Area
-    #AT=T1*(W-D1)
-    #SHEAR AREA AXIAL
-    #ABRA=T1*D1
-    #SHEAR AREA SHEAR
-    #ABRS=T1*E
-    
-    #--- FAILURE MODES ---
-    
-    # NET-TENSION FAILURE
-    #MAX LOAD = STRESS CONCENTRATION * MAX MATERIAL IDK * AT
-    #PU=KT*FTU*AT
-    
-    #SHEAR OUT BEARING
-    #MAX LOAD = STRESS CONCENTRATION * MAX MATERIAL IDK * ABR
-    #PBRY=KBRY*FTU*ABR
-    
-    #BUSHING YIELD
-    #PBRY= 1.85*FCY*ABR
+    #Pu=Kt*Ftu*At -> Ftu based on material, At geometry, Kt
+    #Pbru=Kbru*Ftu*Abr
     
     
     
     return
+
+
+
+if __name__ == "__main__":
+    
+    # Geometry sweep ranges
+    geometry = {
+        "D_min": 0.005,   # 5 mm
+        "D_max": 0.020,   # 20 mm
+        "W_min": 0.010,   # 10 mm
+        "W_max": 0.040,   # 40 mm
+        "T_min": 0.002,   # 2 mm
+        "T_max": 0.010,   # 10 mm
+        "N": 50           # fineness of grid
+    }
+    
+    # Loads (edit to match WP4)
+    loads = {
+        "FX": 100.0,
+        "FY": 500.0,
+        "FZ": 200.0,
+        "F1": 0.0,
+        "MX": 0.0
+    }
+    #e/d=Kbr+0.5
+    #
+    # Material and configuration parameters
+    config = {
+        "FTU": 400e6,   # tensile strength (Pa)
+        "KT": 0.4,      # axial factor
+        "KBR": 1,     # bearing factor
+        "KTU": 0.4      # transverse factor
+    }
+
+    # Call the design function
+    design_lug(geometry, loads, config)
+    
+    print("Lug sweep completed. Data saved to ../Data/lug_scan.npz")
+    # Find and show max MS and its geometry
+    data = np.load("../Data/lug_scan.npz")
+    result = data["result"]                 # shape (N, N, N, 4)
+    MS = result[..., 0]                    # MS field
+    i, j, k = np.unravel_index(np.argmax(MS), MS.shape)
+    best_MS = MS[i, j, k]
+    best_D, best_W, best_T = result[i, j, k, 1:]
+    print(f"Max MS = {best_MS:.3f} at D = {best_D:.6f}, W = {best_W:.6f}, T = {best_T:.6f}")
+    import matplotlib.pyplot as plt
+    # Load data back for plotting
+    data = np.load("../Data/lug_scan.npz")
+    result = data["result"]   # shape (N, N, N, 4)
+    D_arr  = data["D_arr"]
+    W_arr  = data["W_arr"]
+    T_arr  = data["T_arr"]
+    MS     = result[..., 0]   # MS field
+    
+    # Mid indices for W and T when plotting vs D
+    j_mid = len(W_arr) // 2
+    k_mid = len(T_arr) // 2
+    
+    # --- MS vs D (W, T fixed at mid) ---
+    MS_vs_D = MS[:, j_mid, k_mid]
+    plt.figure()
+    plt.plot(D_arr, MS_vs_D)
+    plt.xlabel("D [m]")
+    plt.ylabel("Margin of Safety")
+    plt.title("MS vs D (W, T at mid)")
+    plt.grid(True)
+    
+    # --- MS vs W (D, T fixed at mid) ---
+    i_mid = len(D_arr) // 2
+    MS_vs_W = MS[i_mid, :, k_mid]
+    plt.figure()
+    plt.plot(W_arr, MS_vs_W)
+    plt.xlabel("W [m]")
+    plt.ylabel("Margin of Safety")
+    plt.title("MS vs W (D, T at mid)")
+    plt.grid(True)
+    
+    # --- MS vs T (D, W fixed at mid) ---
+    j_mid = len(W_arr) // 2   # already defined, but harmless to redo
+    MS_vs_T = MS[i_mid, j_mid, :]
+    plt.figure()
+    plt.plot(T_arr, MS_vs_T)
+    plt.xlabel("T [m]")
+    plt.ylabel("Margin of Safety")
+    plt.title("MS vs T (D, W at mid)")
+    plt.grid(True)
+    
+    plt.show()
+
+
