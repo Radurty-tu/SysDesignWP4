@@ -39,7 +39,9 @@ class LugToolUI(tk.Tk):
         # Dropdown with files from ./calculations
         self.file_var = tk.StringVar()
 
-        calc_dir = Path(__file__).resolve().parent / "calculations"
+        project_root = Path(__file__).resolve().parent.parent
+        calc_dir = project_root / "Calculations"
+
         if calc_dir.is_dir():
             files = sorted(
                 f.name for f in calc_dir.iterdir()
