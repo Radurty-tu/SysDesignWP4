@@ -7,21 +7,39 @@ forceY = np.array([0.0,100,0.0])
 forceZ = np.array([0.0,0.0,100])
 all_moments = np.array([0.0,0.0,0.0]) #to be filled
 
-max_STRESS = 1e+9 #to be changed
+max_STRESS = 1e+9 #to be changed DEFINE INSIDE LOOP USE THE DICTIONARIES
 max_SHEAR = 1e+8 # to be changed too
 max_t2 = 30 #in mm and again to be changed/decided
 max_length = 200 #in mm max horizontal length TBD
 
 size_factor = 1.5 #just the ratio between the shank and head/nut
-main_material = {"name": "MainMat", "elasticity": 2e+7, "density": "someValue"}
-space_material = {"name": "SCMat", "elasticity": 2e+6, "density": "someValue"}
+space_material = {"name": "7475-T 761", "elasticity": 70*1e+6, "density": 2810,
+                  "max_STRESS": 448*1e+6,"max_SHEAR":310*1e+6}
+main_material = {"name": "SCMat", "elasticity": 2e+6, "density": "someValue"}
 bolt_material = [ #these are for the bolts, E_b is quite important for compatibility
-    {"name": "Mat1", "elasticity": 1e+6, "density": "someValue"},
-    {"name": "Mat2", "elasticity": 3e+6, "density": "someValue"},
-    {"name": "Mat3", "elasticity": 6e+6, "density": "someValue"},
-    {"name": "Mat4", "elasticity": 9e+6, "density": "someValue"}
+    {"name": "2014-T6", "elasticity": 73.1 * 1e+6, "density": 2800,
+     "max_STRESS": 414 * 1e+6, "max_SHEAR": 290 * 1e+6},
+    {"name": "7075-T6", "elasticity": 71.7 * 1e+6, "density": 2810,
+     "max_STRESS": 503 * 1e+6, "max_SHEAR": 331 * 1e+6},
+    {"name": "AZ91C-T6", "elasticity": 44.8 * 1e+6, "density": 1810,
+     "max_STRESS": 145 * 1e+6, "max_SHEAR": 150 * 1e+6},
+    {"name": "356-T6", "elasticity": 62.4 * 1e+6, "density": 2670,
+     "max_STRESS": 165 * 1e+6, "max_SHEAR": 143 * 1e+6},
+    {"name": "4130 Steel", "elasticity": 205 * 1e+6, "density": 7850,
+     "max_STRESS": 435 * 1e+6, "max_SHEAR": 430 * 1e+6},
+    {"name": "8630 Steel", "elasticity": 200 * 1e+6, "density": 7850,
+     "max_STRESS": 550 * 1e+6, "max_SHEAR": 410 * 1e+6},
+    {"name": "2024-T3", "elasticity": 73.1 * 1e+6, "density": 2780,
+     "max_STRESS": 345 * 1e+6, "max_SHEAR": 283 * 1e+6},
+    {"name": "2024-T4", "elasticity": 73.1 * 1e+6, "density": 2780,
+     "max_STRESS": 324 * 1e+6, "max_SHEAR": 283 * 1e+6},
 ]
-twall = 30 #to be set
+for pos,dictionary in enumerate(bolt_material):
+    if main_material["name"] == dictionary["name"]:
+        bolt_material.pop(pos) #removes the material we use for main for we cannot repeat it
+        break #exit loop
+
+twall = 0.5 #to be set
 h = 30 # in mm the inter-flange distance
 path = "fastners_data/lug_scan.npz"
 # (Your existing loading code is perfect, keep it here)
@@ -107,16 +125,39 @@ def compliance_check(b_mat,t_wall,t_backplate,diameter,main_mat,sc_mat,s_factor,
     good = True if comp < max_f else False
     return good
 
+def mass_calc(bolt_m,main_m,thick_plate,l,b_diam,nrows,t1,w_flange,d_one):
+    n_fast = sum(nrows)
+    w_flange_m = w_flange/1e+3
+    t1_m = t1/1e+3
+    t2_m = thick_plate/1e+3
+    l_m = l/1e+3
+    b_diam_m = b_diam/1e+3
+    d_one_m = d_one/1e+3
+    density_hinge = main_m["density"] #in SI units
+    density_b = bolt_m["density"] #in SI units
+    volume_backplate = (t2_m * l_m) - (np.pi * (b_diam_m/2)**2) * n_fast #plate - holes
+    angle_ratio = (2 * np.arccos((d_one_m/2)/(d_one_m/2 + w_flange_m-d_one)))/(np.pi*2)
+    flange_volume = (2 * t1_m) * w_flange_m + (np.pi * (w_flange_m**2 - d_one_m**2) * t1_m) * (1-angle_ratio)
+    est_head_nut_extra_l = 3 * b_diam_m
+    bolt_volume = n_fast * ((t1_m + t2_m + est_head_nut_extra_l)*np.pi*(b_diam_m/2)**2)
+
+    hinge_mass = (flange_volume + volume_backplate) * density_hinge
+    bolt_mass = bolt_volume * density_b
+    total_mass = hinge_mass + bolt_mass
+    return total_mass
+
 ##########
+best_comb_fixed = []
 for p in range(len(unique_wtd)): #feeds the system a given combination of w,t1,d1
     w_input = unique_wtd[p, 0]
     t1_input = unique_wtd[p, 1]
     d1_input = unique_wtd[p, 2]
     s = 1 * d1_input  # the distance from face of backplate to the edge of d_1, k=1 as a conservative value
-
+    config_best_comb = [] #having filtered all d_2 we now choose the best config for all configs
     for config in bolt_configs: # for one loop we have a given topological configuration
         rows_cfg = config["rows"]
-
+        rows_id = config["name"]
+        d_2_best_comb = [] #fixed for a given w,t1,d1 and config
         for d_2 in config["d2_list"]: #for each top. config we try all d_2s
             max_in_column = max(rows_cfg)
             number = 2 * sum(rows_cfg) #number of fastners total
@@ -158,3 +199,31 @@ for p in range(len(unique_wtd)): #feeds the system a given combination of w,t1,d
                 continue #the only way to decrease compliance is by increasing d_2 so we do that
 
             #if the design has made it this far it has passed, now we need a mass calc to rank all decent results
+            mass_i = mass_calc(bolt_material[index],main_material,curr_t2,curr_length,d_2,rows_cfg,t1_input,
+                             w_input,d1_input)
+            info = [curr_t2,curr_length,d_2,mass_i]
+            d_2_best_comb.append(info)
+        #we are outside the d_2 loop so the d_2 list has all d_2 values for a given config and fixed vals
+        d_2_best_comb = np.array(d_2_best_comb)
+        index_mass = np.argmin(d_2_best_comb[:,3]) #min mass
+        new_info = [d_2_best_comb[index_mass],rows_id]
+        config_best_comb.append(new_info)
+    #we are outside the config loop so we have checked all configs, now decide which is best for the fixed vals
+    config_best_comb = np.array(config_best_comb)
+    index_mass2 = np.argmin(config_best_comb[:,3])  # min mass
+    last_info = [config_best_comb,w_input,d1_input,t1_input] #contains best d_2,l,t2,config for fixed vals
+
+#export to excell
+export = False
+if export:
+    csv_file = f'Test_results{bolt_material[index]["name"]}.csv'
+    
+    full_header = ["Thickness plate","Length","Bolt Diameter","Mass","Config","Height w","Lug Hole Diamter",
+                   "Flange Thickness"]
+    with open (csv_file,"w",newline="") as output_file:
+        writer = csv.writer(output_file)
+        writer.writerow(full_header)
+        writer.writerows(last_info)
+        
+print("Done")
+        
