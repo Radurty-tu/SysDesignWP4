@@ -15,7 +15,7 @@ Outputs:
 import numpy as np
 import math
 import json
-import k_value_calculate as k
+from Calculations import k_value_calculate as k
 
 def area(D,W,T):
     At=T*(W-D)
@@ -97,7 +97,7 @@ def run(config,geometry,loads):
     
     #save
     
-    output_path = "../Data/lug_scan.npz"
+    output_path = "./Data/lug_scan.npz"
 
     np.savez(output_path,
             result=RESULT_grid,
@@ -142,53 +142,5 @@ def plot(file, ax):
     ax.set_ylabel("Margin of Safety")
     ax.set_title("MS vs D (W, T at mid)")
     ax.grid(True)
-
-
-if __name__ == "__main__":
-    
-    # Geometry sweep ranges
-    geometry = {
-        "D_min": 0.005,   # 5 mm
-        "D_max": 0.020,   # 20 mm
-        "W_min": 0.010,   # 10 mm
-        "W_max": 0.040,   # 40 mm
-        "T_min": 0.002,   # 2 mm
-        "T_max": 0.010,   # 10 mm
-        "N": 100           # fineness of grid
-    }
-    
-    # Loads (edit to match WP4)
-    loads = {
-        "FX": 100.0,
-        "FY": 500.0,
-        "FZ": 200.0,
-        "F1": 0.0,
-        "MX": 0.0
-    }
-    #e/d=Kbr+0.5
-    #
-    # Material and configuration parameters
-    config = {
-        "FTU": 400e6,   # tensile strength (Pa)
-        "KT": 0.4,      # axial factor
-        "KBR": 1,     # bearing factor
-        "KTU": 0.4,      # transverse factor
-        "Material":1
-    }
-
-    # Call the design function
-    run(geometry, loads, config)
-    
-    print("Lug sweep completed. Data saved to ../Data/lug_scan.npz")
-    # Find and show max MS and its geometry
-    data = np.load("../Data/lug_scan.npz")
-    result = data["result"]                 # shape (N, N, N, 4)
-    MS = result[..., 0]                    # MS field
-    i, j, k = np.unravel_index(np.argmax(MS), MS.shape)
-    best_MS = MS[i, j, k]
-    best_D, best_W, best_T = result[i, j, k, 1:]
-    print(f"Max MS = {best_MS:.3f} at D = {best_D:.6f}, W = {best_W:.6f}, T = {best_T:.6f}")
-
-    
 
 

@@ -1,32 +1,39 @@
 loads:
-  FX: 0.0
-  FY: 0.0
-  FZ: 0.0
+  FX: 300
+  FY: 500
+  FZ: 200
   F1: 0.0
   MX: 0.0
   MY: 0.0
   MZ: 0.0
-
 geometry:
-    D_min: 0.0
-    D_max: 0
-    W_min: 0
-    W_max: 0
-    T_min: 0
-    T_max: 0
-    N: 0
-
-config: { }
-
-descriptions:
-  FX: "Axial load in x [N]"
-  FY: "Axial load in y [N]"
-  FZ: "Axial load in z [N]"
-  F1: "Secondary axial load[N]"
-  MX: "Moment about x-axis [N·m]"
-  MY: "Moment about y-axis [N·m]"
-  MZ: "Moment about z-axis [N·m]"
-
+  D_min: 0.005
+  D_max: 0.02
+  W_min: 0.01
+  W_max: 0.04
+  T_min: 0.002
+  T_max: 0.01
+  N: 100
+config:
+  FTU: 400000000.0
+  Material: 1
 placeholders:
-  note: "Add additional sections or metadata here if needed."
-  example_param: "This is where you may add more structured config items later."
+  note: Add additional sections or metadata here if needed.
+  example_param: This is where you may add more structured config items later.
+descriptions:
+  FX: Axial load in x [N]
+  FY: Axial load in y [N]
+  FZ: Axial load in z [N]
+  F1: Secondary axial load[N]
+  MX: "Moment about x-axis [N\xB7m]"
+  MY: "Moment about y-axis [N\xB7m]"
+  MZ: "Moment about z-axis [N\xB7m]"
+  D_min: Smallest D1 [m]
+  D_max: Biggest D1 [m]
+  W_min: Smallest W [m]
+  W_max: Biggest W [m]
+  T_min: Smallest T1 [m]
+  T_max: Biggest T1 [m]
+  N: Fineness
+  FTU: Yield Strength [Pa]
+  Material: Which material we use

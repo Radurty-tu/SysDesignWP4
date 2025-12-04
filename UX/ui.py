@@ -132,10 +132,17 @@ class LugToolUI(tk.Tk):
 
         self.param_canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
+        # save button
+        self.save_button = ttk.Button(
+            mid, text="Save config", command=self._on_save_clicked
+        )
+        self.save_button.grid(row=3, column=0, sticky="ew", pady=(5, 0))
+
         # load first config automatically if present
         if config_files:
             self.config_combo.current(0)
             self._on_config_file_selected()
+
 
     def _on_config_file_selected(self, event=None):
         filename = self.config_file_var.get()
@@ -254,6 +261,29 @@ class LugToolUI(tk.Tk):
                 value = text
             result[name] = value
         return result
+    def _on_save_clicked(self):
+        filename = self.config_file_var.get()
+        if not filename:
+            return
+    
+        path = self.data_dir / filename
+        if not path.is_file():
+            return
+    
+        # current values from UI
+        sections = self.get_current_sections()
+    
+        # keep descriptions from original YAML
+        original = self.yaml_data or {}
+        descriptions = original.get("descriptions", {})
+    
+        data_out = dict(sections)
+        if descriptions:
+            data_out["descriptions"] = descriptions
+    
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data_out, f, sort_keys=False)
+
 
     # --- right panel unchanged ---
     def _build_right_panel(self):
@@ -279,43 +309,27 @@ class LugToolUI(tk.Tk):
             return
 
         module_name = selected.removesuffix(".py")
-        
+
         try:
             mod = importlib.import_module(f"Calculations.{module_name}")
         except ImportError as e:
             print(f"Could not import Calculations.{module_name}: {e}")
             return
 
-        # Config from middle panel (Dicts.yaml etc.)
-        config = self.get_current_config_section()
+        # get sections from YAML editor
+        sections = self.get_current_sections()
+        config   = sections.get("config",   {})
+        geometry = sections.get("geometry", {})
+        loads    = sections.get("loads",    {})
 
-        # For now: hard-coded geometry and loads
-        # (you can later move these to YAML or extra UI fields)
-        geometry = {
-            "D_min": 0.005,
-            "D_max": 0.020,
-            "W_min": 0.010,
-            "W_max": 0.040,
-            "T_min": 0.002,
-            "T_max": 0.010,
-            "N": 75,
-        }
-        loads = {
-            "FX": 100.0,
-            "FY": 500.0,
-            "FZ": 200.0,
-            "F1": 0.0,
-            "MX": 0.0,
-        }
-
-        # Run the calculation module
+        # run calculation: standardized signature run(config, geometry, loads)
         try:
-            npz_path = mod.run(geometry, loads, config)
+            npz_path = mod.run(config, geometry, loads)
         except Exception as e:
             print(f"Error running {module_name}.run: {e}")
             return
 
-        # Plot into the right-hand axes
+        # plot result if module provides plot(file, ax)
         if hasattr(mod, "plot"):
             try:
                 mod.plot(npz_path, self.ax)
@@ -324,6 +338,8 @@ class LugToolUI(tk.Tk):
                 print(f"Error plotting with {module_name}.plot: {e}")
         else:
             print(f"Module {module_name} has no plot(file, ax) function")
+
+
 
 if __name__ == "__main__":
     app = LugToolUI()
