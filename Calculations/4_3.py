@@ -15,6 +15,7 @@ Outputs:
 import numpy as np
 import math
 import json
+import k_value_calculate as k
 
 def area(D,W,T):
     At=T*(W-D)
@@ -50,19 +51,24 @@ def run(geometry,loads,config):
     MX = loads["MX"]
     
     FTU= config["FTU"]
-    KT=config["KT"]
+    #KT=config["KT"]
     #KBR=config["KBR"]
-    KTU=config["KTU"]
+    #KTU=config["KTU"]
+    Mat=config["Material"]
     
     #Numpy section
     D_arr = np.linspace(D_min, D_max, N)
     W_arr = np.linspace(W_min, W_max, N)
     T_arr = np.linspace(T_min, T_max, N)
     
+    
+    
     D_grid, W_grid, T_grid = np.meshgrid(D_arr, W_arr, T_arr, indexing="ij")
     At_grid, Abr_grid = area(D_grid, W_grid, T_grid)
     geom_ok = W_grid > D_grid
     e_grid = 0.5 * (W_grid - D_grid)
+    A_av_grid = (W_grid - D_grid) / T_grid
+    
     
     CY= 0.6373*(T_grid/D_grid)- 0.3019
     ZY= 20.332*(T_grid/D_grid**2) + 8.3023*(T_grid/D_grid) + 0.5995
@@ -71,11 +77,15 @@ def run(geometry,loads,config):
     CU= -0.0004*(D_grid/T_grid**3) + 0.0283*(D_grid/T_grid**2)- 0.5444*(D_grid/T_grid) + 2.8731
     ZU=  0.0026*(D_grid/T_grid**2)- 0.1488*(D_grid/T_grid) + 2.5401
     KBRU_grid = ( ZU*(D_grid/T_grid)*(2.4 + CU)*(e_grid/D_grid - 0.5)/(e_grid/D_grid + CU) )/1.9
+    
+    
+    K_ty_grid = k.compute_K_ty(A_av_grid)
+    K_tu_grid = k.compute_K_tu(A_av_grid, Mat)
 
-    Pu_grid   = KT * FTU * At_grid
+    Pu_grid   = K_ty_grid * FTU * At_grid
     Pbru_grid = KBRU_grid * FTU * Abr_grid
     P_ult_grid = np.minimum(Pu_grid, Pbru_grid)
-    Ptu_grid = KTU * FTU * Abr_grid   
+    Ptu_grid = K_tu_grid * FTU * Abr_grid   
     Ra_grid = (FY + F1) / (P_ult_grid * 2.0)
     Rtr_grid = np.sqrt(FZ**2 + FX**2)/(Ptu_grid)/2
     Metric_grid = Ra_grid**1.6 + Rtr_grid**1.6
@@ -144,7 +154,7 @@ if __name__ == "__main__":
         "W_max": 0.040,   # 40 mm
         "T_min": 0.002,   # 2 mm
         "T_max": 0.010,   # 10 mm
-        "N": 75           # fineness of grid
+        "N": 100           # fineness of grid
     }
     
     # Loads (edit to match WP4)
@@ -162,7 +172,8 @@ if __name__ == "__main__":
         "FTU": 400e6,   # tensile strength (Pa)
         "KT": 0.4,      # axial factor
         "KBR": 1,     # bearing factor
-        "KTU": 0.4      # transverse factor
+        "KTU": 0.4,      # transverse factor
+        "Material":1
     }
 
     # Call the design function
