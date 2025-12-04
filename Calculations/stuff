@@ -1,0 +1,160 @@
+import numpy as np
+import math
+import csv
+
+forceX = np.array([100,0.0,0.0])
+forceY = np.array([0.0,100,0.0])
+forceZ = np.array([0.0,0.0,100])
+all_moments = np.array([0.0,0.0,0.0]) #to be filled
+
+max_STRESS = 1e+9 #to be changed
+max_SHEAR = 1e+8 # to be changed too
+max_t2 = 30 #in mm and again to be changed/decided
+max_length = 200 #in mm max horizontal length TBD
+
+size_factor = 1.5 #just the ratio between the shank and head/nut
+main_material = {"name": "MainMat", "elasticity": 2e+7, "density": "someValue"}
+space_material = {"name": "SCMat", "elasticity": 2e+6, "density": "someValue"}
+bolt_material = [ #these are for the bolts, E_b is quite important for compatibility
+    {"name": "Mat1", "elasticity": 1e+6, "density": "someValue"},
+    {"name": "Mat2", "elasticity": 3e+6, "density": "someValue"},
+    {"name": "Mat3", "elasticity": 6e+6, "density": "someValue"},
+    {"name": "Mat4", "elasticity": 9e+6, "density": "someValue"}
+]
+twall = 30 #to be set
+h = 30 # in mm the inter-flange distance
+path = "fastners_data/lug_scan.npz"
+# (Your existing loading code is perfect, keep it here)
+data = np.load(path)
+results = data["result"]
+ms_values = results[..., 0]
+d1_values = results[..., 1] * 1e+3
+w_values = results[..., 2] * 1e+3
+t_values = results[..., 3] * 1e+3
+valid_mask = ms_values != 0
+valid_wtd = np.column_stack((w_values[valid_mask], t_values[valid_mask], d1_values[valid_mask]))
+unique_wtd = np.unique(valid_wtd, axis=0)  # Unique inputs to solve for
+min_d2,max_d2 = 5, 60
+diameter_list = list(np.linspace(min_d2,max_d2,round(max_d2-min_d2)))
+bolt_configs = [ #all 5 options, more can be added if necessary
+    {"name": "1_each", "rows": [1], "d2_list": diameter_list},
+    {"name": "2_each", "rows": [2], "d2_list": diameter_list},
+    {"name": "3_each", "rows": [3], "d2_list": diameter_list},
+    {"name": "2,2_each", "rows": [2,2], "d2_list": diameter_list},
+    {"name": "3,3_each", "rows": [3,3],  "d2_list": diameter_list}
+]
+index = 0 #for the material loop
+##########
+def bearing_check(n_f,fX,fZ,d_two,thickness,max_stress): # we are assuming center cg (0,0,0) so no need to calculate that
+    f_inX = fX/n_f # we are also assuming same d_2 for all
+    f_inZ = fZ/n_f # we call this for t_2 and t_wall eventually
+    total_f = np.sqrt(f_inX**2 + f_inZ**2)
+    stress = total_f/(d_two * thickness)
+    passed = True if stress <= max_stress else False
+    return passed
+
+def pullout_check(arm_l,force_X,force_Y,force_Z,rows,clearance,w_height,d__2,min_s,length,max_shear,th):
+    #position the fastners as far from cg as possible
+    positions = [] # we use 0,0,0 as the cg
+    num = 2 * sum(rows)
+    x_crd = -length/2 + clearance
+    for col in range(len(rows)):  # one side only
+        z_limits = [-w_height/2 + clearance, w_height/2 - clearance]
+        z_crds = np.linspace(z_limits[0], z_limits[1], rows[col])
+        if rows[col] == 1:
+            z_crds = np.array([0.0])
+        for zc in z_crds:
+            positions.append([math.pi * (d__2 / 2)**2, x_crd, zc, d__2])
+        if col < len(rows):
+            x_crd += min_s
+    positions = np.array(positions)
+    mirror = positions.copy()
+    mirror[:,1] = mirror[:,1] * -1
+    positions = np.vstack((positions,mirror))
+    # calculate the polar moment for x and z
+    polar_x = np.sum(positions[:,0] * (positions[:,1]**2))
+    polar_z = np.sum(positions[:,0] * (positions[:,2]**2))
+    vector_p = np.array([0.0,arm_l,0.0])
+    moments = np.cross(vector_p,(force_X + force_Y + force_Z)) #moments due to X and Z
+    tension_force = force_Y[1]/num #force per fastner, positive is tension
+    #forces due to the moments x and z
+    mForce_Mx = (moments[0] / polar_z) * (positions[:, 0] * positions[:, 2])
+    mForce_Mz = -1 * (moments[2] / polar_x) * (positions[:, 0] * positions[:, 1])
+    total_T_forces = mForce_Mx + mForce_Mz + tension_force
+    side_area = (math.pi * positions[:, 3] * th) / 1e+6 # in Pa
+    shear_stresses = np.round(total_T_forces / side_area)
+    cool = True if np.max(np.abs(shear_stresses)) <= max_shear else False
+    return cool
+
+def compliance_check(b_mat,t_wall,t_backplate,diameter,main_mat,sc_mat,s_factor,hexa,tight,max_f):
+    diam_m = diameter/1e+3 #to get it to m
+    d_outer = diam_m * s_factor
+    delta_backplate = (4*t_backplate/1e+3)/(main_mat["elasticity"] * np.pi * (d_outer**2 - diam_m**2))
+    delta_wall = (4*t_wall/1e+3)/(sc_mat["elasticity"] * np.pi * (d_outer**2 - diam_m**2))
+    delta_att = delta_wall + delta_backplate
+
+    a_nom = (np.pi * (diam_m/2)**2)  # the area with inner diameter in m²
+    h_factor = 0.5 if hexa else 0.4  # hex and cyl
+    eng_factor = 0.4 if tight else 0.33 #will likely be true always as we want higher coefficients
+    n_factor = 0.4  # always
+    l_head_sub = diam_m * h_factor
+    l_eng_sub = diam_m * eng_factor
+    l_shank_sub = (t_backplate + t_wall) / 1e+3
+    l_nut_sub = diam_m * n_factor
+    delta_b = (l_head_sub + l_eng_sub + l_shank_sub + l_nut_sub) / (a_nom * b_mat["elasticity"])
+
+    comp = delta_att/(delta_att + delta_b)
+    good = True if comp < max_f else False
+    return good
+
+##########
+for p in range(len(unique_wtd)): #feeds the system a given combination of w,t1,d1
+    w_input = unique_wtd[p, 0]
+    t1_input = unique_wtd[p, 1]
+    d1_input = unique_wtd[p, 2]
+    s = 1 * d1_input  # the distance from face of backplate to the edge of d_1, k=1 as a conservative value
+
+    for config in bolt_configs: # for one loop we have a given topological configuration
+        rows_cfg = config["rows"]
+
+        for d_2 in config["d2_list"]: #for each top. config we try all d_2s
+            max_in_column = max(rows_cfg)
+            number = 2 * sum(rows_cfg) #number of fastners total
+            s_min = 2 * d_2
+            clear = 1.5 * d_2
+            # we check that the bolt sizes actually fit in the height w, if they don't onto the next d_2
+            if (clear * 2) + s_min * (max_in_column-1) > w_input:
+                break #if it does not fit we exit the loop completely so higher d_2 are not tested
+
+            # we assume symmetric about cg so no moments, we can check bearing without getting r positions
+            curr_t2 = 1.0
+            failed_bearing = False
+            while not bearing_check(number,forceX[0],forceZ[2],d_2,curr_t2,max_STRESS): #call the function get true if passed false if not
+                curr_t2 += 1 #last try will give you the lowest t_2
+                if curr_t2 > max_t2:
+                    failed_bearing = True
+                    break #we reached max thickness and cannot pass bearing with this so we try higher d2
+            if failed_bearing: continue
+            # we must now try the pullout check with our latest t_2
+            curr_length = (2 * t1_input + h) + 2 * clear + (len(rows_cfg)-1) * s_min
+            l_arm = curr_t2 + d1_input/2 + s #the length from force to shear plane
+            failed_pullout = False
+            while not pullout_check(l_arm,forceX,forceY,forceZ,rows_cfg,clear,
+                                    w_input,d_2,s_min,curr_length,max_SHEAR,curr_t2): #this must get the positions and new length so basically all
+                curr_length += 1
+                if curr_length > max_length:
+                    curr_t2 += 1  # increase t_2 and try again
+                    curr_length = (2 * t1_input + h) + 2 * clear + (len(rows_cfg)-1) * s_min #reset with new t_2
+                    if curr_t2 > max_t2:
+                        failed_pullout = True
+                        break #try for a higher d_2
+            if failed_pullout: continue
+            # we now check the compliance, the max value is 0.3 which can be changed
+            max_force_ratio = 0.3
+            hexagonal = True  # hex and cyl
+            n_tightened = True
+            if not compliance_check(bolt_material[index],twall,curr_t2,d_2,main_material,space_material,
+                                    size_factor,hexagonal,n_tightened,max_force_ratio):
+                continue #the only way to decrease compliance is by increasing d_2 so we do that
+
+            #if the design has made it this far it has passed, now we need a mass calc to rank all decent results
