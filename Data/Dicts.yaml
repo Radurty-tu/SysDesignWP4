@@ -1,0 +1,15 @@
+config:
+  FTU: []        # fill with your real list, e.g. [1.0, 2.0, 3.0]
+  KT: []         # e.g. [10, 20, 30]
+  KBR: []        # placeholder – remove if unused
+  KTU: []        # e.g. [0.1, 0.2]
+
+descriptions:
+  FTU: "FTU array. Used in calculations requiring FTU factors. Must be a list of numbers."
+  KT: "KT array. Core dataset for the second stage of calculations."
+  KBR: "KBR array. Placeholder entry. Remove or rename as needed."
+  KTU: "KTU array. Supplementary values for downstream steps."
+
+placeholders:
+  note: "Add additional sections or metadata here if needed."
+  example_param: "This is where you may add more structured config items later."

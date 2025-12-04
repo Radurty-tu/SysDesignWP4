@@ -2,6 +2,11 @@ import os
 import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
+import yaml
+import ast
+import importlib
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 
 
 class LugToolUI(tk.Tk):
@@ -11,21 +16,25 @@ class LugToolUI(tk.Tk):
         self.title("Lug Tools")
         self.geometry("1200x700")
 
-        # Root frame with 3 columns
+        self.project_root = Path(__file__).resolve().parent.parent
+
+        # will hold dicts loaded from YAML
+        self.config_data = {}         # the raw dict from YAML
+        self.config_values = {}       # config section (actual values)
+        self.config_descriptions = {} # descriptions section
+        self.param_vars = {}
+
+        # layout
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
         self.columnconfigure(2, weight=2)
         self.rowconfigure(0, weight=1)
 
-        # Left panel: file select + run
         self._build_left_panel()
-
-        # Middle panel: control panel
         self._build_middle_panel()
-
-        # Right panel: graph area
         self._build_right_panel()
 
+    # --- left panel unchanged, omitted for brevity ---
     def _build_left_panel(self):
         left = ttk.Frame(self, padding=10)
         left.grid(row=0, column=0, sticky="nsew")
@@ -36,11 +45,8 @@ class LugToolUI(tk.Tk):
             row=0, column=0, sticky="w"
         )
 
-        # Dropdown with files from ./calculations
         self.file_var = tk.StringVar()
-
-        project_root = Path(__file__).resolve().parent.parent
-        calc_dir = project_root / "Calculations"
+        calc_dir = self.project_root / "Calculations"
 
         if calc_dir.is_dir():
             files = sorted(
@@ -58,61 +64,228 @@ class LugToolUI(tk.Tk):
         if files:
             self.file_combo.current(0)
 
-        # Run button, no real functionality yet
         run_button = ttk.Button(
             left, text="Run selected",
             command=self._on_run_clicked
         )
         run_button.grid(row=2, column=0, sticky="ew")
 
+    # --- middle panel with config editor ---
     def _build_middle_panel(self):
         mid = ttk.LabelFrame(self, text="Control panel", padding=10)
         mid.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
         mid.columnconfigure(0, weight=1)
+        mid.rowconfigure(2, weight=1)  # scrollable area
 
-        # Placeholder widgets for now
-        ttk.Label(mid, text="Input configuration").grid(
+        # config file selector
+        ttk.Label(mid, text="Config file (Data)").grid(
             row=0, column=0, sticky="w"
         )
-        ttk.Entry(mid).grid(row=1, column=0, sticky="ew", pady=(0, 10))
 
-        ttk.Label(mid, text="Output file").grid(
-            row=2, column=0, sticky="w"
-        )
-        ttk.Entry(mid).grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        self.config_file_var = tk.StringVar()
+        self.data_dir = self.project_root / "Data"
 
-        # Room for future buttons, toggles etc
-        ttk.Button(mid, text="Future option 1").grid(
-            row=4, column=0, sticky="ew", pady=(5, 0)
+        if self.data_dir.is_dir():
+            config_files = sorted(
+                f.name for f in self.data_dir.iterdir()
+                if f.is_file() and f.suffix.lower() in {".yaml", ".yml"}
+            )
+        else:
+            config_files = []
+
+        self.config_combo = ttk.Combobox(
+            mid,
+            textvariable=self.config_file_var,
+            values=config_files,
+            state="readonly",
         )
-        ttk.Button(mid, text="Future option 2").grid(
-            row=5, column=0, sticky="ew", pady=(5, 0)
+        self.config_combo.grid(row=1, column=0, sticky="ew", pady=(5, 10))
+        self.config_combo.bind("<<ComboboxSelected>>", self._on_config_file_selected)
+
+        # scrollable parameter area
+        container = ttk.Frame(mid)
+        container.grid(row=2, column=0, sticky="nsew")
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(0, weight=1)
+
+        self.param_canvas = tk.Canvas(container, highlightthickness=0)
+        self.param_canvas.grid(row=0, column=0, sticky="nsew")
+
+        vscroll = ttk.Scrollbar(
+            container, orient="vertical", command=self.param_canvas.yview
+        )
+        vscroll.grid(row=0, column=1, sticky="ns")
+
+        self.param_canvas.configure(yscrollcommand=vscroll.set)
+
+        self.param_frame = ttk.Frame(self.param_canvas)
+        self.param_canvas.create_window((0, 0), window=self.param_frame, anchor="nw")
+
+        def _on_frame_configure(event):
+            self.param_canvas.configure(scrollregion=self.param_canvas.bbox("all"))
+
+        self.param_frame.bind("<Configure>", _on_frame_configure)
+
+        def _on_mousewheel(event):
+            self.param_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        self.param_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        # load first config automatically if present
+        if config_files:
+            self.config_combo.current(0)
+            self._on_config_file_selected()
+
+    def _on_config_file_selected(self, event=None):
+        filename = self.config_file_var.get()
+        if not filename:
+            return
+
+        path = self.data_dir / filename
+        if not path.is_file():
+            return
+
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+
+        self.config_data = data
+        self.config_values = data.get("config", {}) or {}
+        self.config_descriptions = data.get("descriptions", {}) or {}
+
+        self._populate_param_frame()
+
+    def _populate_param_frame(self):
+        # clear existing
+        for child in self.param_frame.winfo_children():
+            child.destroy()
+
+        self.param_vars = {}
+
+        # headers
+        ttk.Label(self.param_frame, text="Name", font=("", 9, "bold")).grid(
+            row=0, column=0, sticky="w", padx=(0, 5), pady=(0, 5)
+        )
+        ttk.Label(self.param_frame, text="Value", font=("", 9, "bold")).grid(
+            row=0, column=1, sticky="w", padx=(0, 5), pady=(0, 5)
+        )
+        ttk.Label(self.param_frame, text="Description", font=("", 9, "bold")).grid(
+            row=0, column=2, sticky="w", padx=(0, 5), pady=(0, 5)
         )
 
+        self.param_frame.columnconfigure(0, weight=1)
+        self.param_frame.columnconfigure(1, weight=1)
+        self.param_frame.columnconfigure(2, weight=2)
+
+        row = 1
+        for name, value in self.config_values.items():
+            desc = self.config_descriptions.get(name, "")
+
+            # show literal representation so lists stay obvious
+            text_value = repr(value)
+
+            var = tk.StringVar(value=text_value)
+            self.param_vars[name] = var
+
+            ttk.Label(self.param_frame, text=name).grid(
+                row=row, column=0, sticky="w", padx=(0, 5), pady=2
+            )
+
+            entry = ttk.Entry(self.param_frame, textvariable=var)
+            entry.grid(
+                row=row, column=1, sticky="ew", padx=(0, 5), pady=2
+            )
+
+            ttk.Label(self.param_frame, text=desc, wraplength=300, justify="left").grid(
+                row=row, column=2, sticky="w", padx=(0, 5), pady=2
+            )
+
+            row += 1
+
+    def get_current_config_section(self):
+        """
+        Return the edited config section as a dict, preserving list types if possible.
+        Uses ast.literal_eval on each entry; falls back to string if parsing fails.
+        """
+        result = {}
+        for name, var in self.param_vars.items():
+            text = var.get()
+            try:
+                value = ast.literal_eval(text)
+            except Exception:
+                value = text
+            result[name] = value
+        return result
+
+    # --- right panel unchanged ---
     def _build_right_panel(self):
         right = ttk.LabelFrame(self, text="Graph area", padding=10)
         right.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
-
+    
         right.columnconfigure(0, weight=1)
         right.rowconfigure(0, weight=1)
+    
+        # Matplotlib Figure/Axes embedded in Tkinter
+        self.fig = Figure(figsize=(5, 4), dpi=100)
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_title("Graphs will go here")
+    
+        self.canvas = FigureCanvasTkAgg(self.fig, master=right)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
-        # Placeholder canvas for future matplotlib embedding or custom drawing
-        placeholder = tk.Canvas(right, bg="#222222")
-        placeholder.grid(row=0, column=0, sticky="nsew")
-
-        placeholder.create_text(
-            10, 10,
-            anchor="nw",
-            fill="white",
-            text="Graphs will go here"
-        )
 
     def _on_run_clicked(self):
-        # Placeholder for now
         selected = self.file_var.get()
-        print(f"Run clicked. Selected file: {selected}")
+        if not selected:
+            return
 
+        module_name = selected.removesuffix(".py")
+        
+        try:
+            mod = importlib.import_module(f"Calculations.{module_name}")
+        except ImportError as e:
+            print(f"Could not import Calculations.{module_name}: {e}")
+            return
+
+        # Config from middle panel (Dicts.yaml etc.)
+        config = self.get_current_config_section()
+
+        # For now: hard-coded geometry and loads
+        # (you can later move these to YAML or extra UI fields)
+        geometry = {
+            "D_min": 0.005,
+            "D_max": 0.020,
+            "W_min": 0.010,
+            "W_max": 0.040,
+            "T_min": 0.002,
+            "T_max": 0.010,
+            "N": 75,
+        }
+        loads = {
+            "FX": 100.0,
+            "FY": 500.0,
+            "FZ": 200.0,
+            "F1": 0.0,
+            "MX": 0.0,
+        }
+
+        # Run the calculation module
+        try:
+            npz_path = mod.run(geometry, loads, config)
+        except Exception as e:
+            print(f"Error running {module_name}.run: {e}")
+            return
+
+        # Plot into the right-hand axes
+        if hasattr(mod, "plot"):
+            try:
+                mod.plot(npz_path, self.ax)
+                self.canvas.draw()
+            except Exception as e:
+                print(f"Error plotting with {module_name}.plot: {e}")
+        else:
+            print(f"Module {module_name} has no plot(file, ax) function")
 
 if __name__ == "__main__":
     app = LugToolUI()
