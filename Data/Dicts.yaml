@@ -1,14 +1,31 @@
-config:
-  FTU: []        # fill with your real list, e.g. [1.0, 2.0, 3.0]
-  KT: []         # e.g. [10, 20, 30]
-  KBR: []        # placeholder – remove if unused
-  KTU: []        # e.g. [0.1, 0.2]
+loads:
+  FX: 0.0
+  FY: 0.0
+  FZ: 0.0
+  F1: 0.0
+  MX: 0.0
+  MY: 0.0
+  MZ: 0.0
+
+geometry:
+    D_min: 0.0
+    D_max: 0
+    W_min: 0
+    W_max: 0
+    T_min: 0
+    T_max: 0
+    N: 0
+
+config: { }
 
 descriptions:
-  FTU: "FTU array. Used in calculations requiring FTU factors. Must be a list of numbers."
-  KT: "KT array. Core dataset for the second stage of calculations."
-  KBR: "KBR array. Placeholder entry. Remove or rename as needed."
-  KTU: "KTU array. Supplementary values for downstream steps."
+  FX: "Axial load in x [N]"
+  FY: "Axial load in y [N]"
+  FZ: "Axial load in z [N]"
+  F1: "Secondary axial load[N]"
+  MX: "Moment about x-axis [N·m]"
+  MY: "Moment about y-axis [N·m]"
+  MZ: "Moment about z-axis [N·m]"
 
 placeholders:
   note: "Add additional sections or metadata here if needed."

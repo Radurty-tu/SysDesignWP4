@@ -149,20 +149,18 @@ class LugToolUI(tk.Tk):
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
 
-        self.config_data = data
-        self.config_values = data.get("config", {}) or {}
+        self.yaml_data = data
         self.config_descriptions = data.get("descriptions", {}) or {}
 
         self._populate_param_frame()
 
     def _populate_param_frame(self):
-        # clear existing
         for child in self.param_frame.winfo_children():
             child.destroy()
 
         self.param_vars = {}
+        self.param_index = {}  # "section.key" -> (section, key)
 
-        # headers
         ttk.Label(self.param_frame, text="Name", font=("", 9, "bold")).grid(
             row=0, column=0, sticky="w", padx=(0, 5), pady=(0, 5)
         )
@@ -178,29 +176,69 @@ class LugToolUI(tk.Tk):
         self.param_frame.columnconfigure(2, weight=2)
 
         row = 1
-        for name, value in self.config_values.items():
-            desc = self.config_descriptions.get(name, "")
+        for section, mapping in (self.yaml_data or {}).items():
+            if not isinstance(mapping, dict):
+                continue
+            if section == "descriptions":
+                continue
 
-            # show literal representation so lists stay obvious
-            text_value = repr(value)
-
-            var = tk.StringVar(value=text_value)
-            self.param_vars[name] = var
-
-            ttk.Label(self.param_frame, text=name).grid(
-                row=row, column=0, sticky="w", padx=(0, 5), pady=2
-            )
-
-            entry = ttk.Entry(self.param_frame, textvariable=var)
-            entry.grid(
-                row=row, column=1, sticky="ew", padx=(0, 5), pady=2
-            )
-
-            ttk.Label(self.param_frame, text=desc, wraplength=300, justify="left").grid(
-                row=row, column=2, sticky="w", padx=(0, 5), pady=2
-            )
-
+            ttk.Label(
+                self.param_frame, text=section, font=("", 9, "bold")
+            ).grid(row=row, column=0, sticky="w", padx=(0, 5), pady=(4, 2))
             row += 1
+
+            for key, value in mapping.items():
+                fullname = f"{section}.{key}"
+
+                desc = (
+                    self.config_descriptions.get(fullname, "")
+                    or self.config_descriptions.get(key, "")
+                )
+
+                text_value = repr(value)
+                var = tk.StringVar(value=text_value)
+
+                self.param_vars[fullname] = var
+                self.param_index[fullname] = (section, key)
+
+                ttk.Label(self.param_frame, text=key).grid(
+                    row=row, column=0, sticky="w", padx=(10, 5), pady=2
+                )
+
+                entry = ttk.Entry(self.param_frame, textvariable=var)
+                entry.grid(
+                    row=row, column=1, sticky="ew", padx=(0, 5), pady=2
+                )
+
+                ttk.Label(
+                    self.param_frame,
+                    text=desc,
+                    wraplength=300,
+                    justify="left",
+                ).grid(
+                    row=row, column=2, sticky="w", padx=(0, 5), pady=2
+                )
+
+                row += 1
+
+    def get_current_sections(self):
+        """
+        Return all editable sections as a nested dict:
+        {section: {key: value, ...}, ...}
+        """
+        result = {}
+        for fullname, var in self.param_vars.items():
+            section, key = self.param_index[fullname]
+            text = var.get()
+            try:
+                value = ast.literal_eval(text)
+            except Exception:
+                value = text
+            if section not in result:
+                result[section] = {}
+            result[section][key] = value
+        return result
+
 
     def get_current_config_section(self):
         """

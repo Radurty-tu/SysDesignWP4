@@ -22,7 +22,7 @@ def area(D,W,T):
     Abr=T*(W-D)/2
     return At, Abr
 
-def run(geometry,loads,config):
+def run(config,geometry,loads):
     '''
     PLAN:
         GET RANGES FOR DIAMETER, WIDTH, THICKNESS

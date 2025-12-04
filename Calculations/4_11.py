@@ -23,7 +23,7 @@ import numpy as np
 
 
 
-def temp_check(config,geometry,loads):
+def run(config,geometry,loads):
     smax=config["Max_Stress"]
     old=config["4_7_Forces"]
     D2=geometry["D2"]
