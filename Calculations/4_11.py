@@ -23,8 +23,11 @@ import numpy as np
 
 
 
-def temp_check(config,geometry):
+def temp_check(config,geometry,loads):
+    smax=config["Max_Stress"]
+    old=config["4_7_Forces"]
     D2=geometry["D2"]
+    t2=geometry["t2"]
     Asm=np.pi*D2**2/4
     delta_T_min=-5
     delta_T_max=15
@@ -34,8 +37,15 @@ def temp_check(config,geometry):
     Lj=geometry["Lj"]
     phi=config["phi"]
     
-    FdTmin=(alpha_clamped-alpha_fastner)*delta_T_min*Asm*(1-phi)
-    FdTmax=(alpha_clamped-alpha_fastner)*delta_T_max*Asm*(1-phi)
+    FdTmin=(alpha_clamped-alpha_fastner)*delta_T_min*Eb*Asm*(1-phi)
+    FdTmax=(alpha_clamped-alpha_fastner)*delta_T_max*Eb*Asm*(1-phi)
+    
+    Fmin=FdTmin+old
+    Fmax=FdTmax+old
+    
+    stress_min=Fmin/D2/t2
+    stress_max=Fmax/D2/t2
+
     
     
-    return
+    return (stress_min<=smax)&(stress_max<=smax)
