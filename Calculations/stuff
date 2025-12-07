@@ -1,7 +1,8 @@
-def run(config,geometry,loads,loadFilePath,export=True): #change the export to false if you don't want an excel
+def run_it(config,geometry,loads,loadFilePath,export=True): #change the export to false if you don't want an excel
     import numpy as np
     import pandas as pd
     import math
+    from _4_11 import run
 
     forceX = np.array([loads["FX"],0.0,0.0])
     forceY = np.array([0.0,loads["FY"],0.0])
@@ -17,25 +18,25 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
 
     size_factor = 1.5 #just the ratio between the shank and head/nut
     space_material = {"name": "7475-T 761", "elasticity": 70*1e+9, "density": 2810,
-                      "max_STRESS": 448*1e+6,"max_SHEAR":310*1e+6}
+                      "max_STRESS": 448*1e+6,"max_SHEAR":310*1e+6,"expansion":23.2*1e-6}
 
     bolt_material = [ #these are for the bolts, E_b is quite important for compatibility
         {"name": "2014-T6", "elasticity": 73.1 * 1e+9, "density": 2800,
-         "max_STRESS": 414 * 1e+6, "max_SHEAR": 290 * 1e+6},
+         "max_STRESS": 414 * 1e+6, "max_SHEAR": 290 * 1e+6, "expansion": 23*1e-6 },
         {"name": "7075-T6", "elasticity": 71.7 * 1e+9, "density": 2810,
-         "max_STRESS": 503 * 1e+6, "max_SHEAR": 331 * 1e+6},
+         "max_STRESS": 503 * 1e+6, "max_SHEAR": 331 * 1e+6, "expansion": 23.6*1e-6 },
         {"name": "AZ91C-T6", "elasticity": 44.8 * 1e+9, "density": 1810,
-         "max_STRESS": 145 * 1e+6, "max_SHEAR": 150 * 1e+6},
+         "max_STRESS": 145 * 1e+6, "max_SHEAR": 150 * 1e+6,"expansion": 26*1e-6 },
         {"name": "356-T6", "elasticity": 62.4 * 1e+9, "density": 2670,
-         "max_STRESS": 165 * 1e+6, "max_SHEAR": 143 * 1e+6},
+         "max_STRESS": 165 * 1e+6, "max_SHEAR": 143 * 1e+6,"expansion": 21.4*1e-6 },
         {"name": "4130 Steel", "elasticity": 205 * 1e+9, "density": 7850,
-         "max_STRESS": 435 * 1e+6, "max_SHEAR": 430 * 1e+6},
+         "max_STRESS": 435 * 1e+6, "max_SHEAR": 430 * 1e+6,"expansion": 11.1*1e-6 },
         {"name": "8630 Steel", "elasticity": 200 * 1e+9, "density": 7850,
-         "max_STRESS": 550 * 1e+6, "max_SHEAR": 410 * 1e+6},
+         "max_STRESS": 550 * 1e+6, "max_SHEAR": 410 * 1e+6,"expansion": 11*1e-6 },
         {"name": "2024-T3", "elasticity": 73.1 * 1e+9, "density": 2780,
-         "max_STRESS": 345 * 1e+6, "max_SHEAR": 283 * 1e+6},
+         "max_STRESS": 345 * 1e+6, "max_SHEAR": 283 * 1e+6,"expansion": 23.2*1e-6 },
         {"name": "2024-T4", "elasticity": 73.1 * 1e+9, "density": 2780,
-         "max_STRESS": 324 * 1e+6, "max_SHEAR": 283 * 1e+6},
+         "max_STRESS": 324 * 1e+6, "max_SHEAR": 283 * 1e+6,"expansion": 23.2*1e-6 },
     ]
     main_material = bolt_material[config["Material"]] #get the material
     mp_i = 0
@@ -67,7 +68,8 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
         {"name": "3,3_each","ID": 33, "rows": [3,3],  "d2_list": diameter_list}
     ]
     ##########
-    def bearing_check(n_f,fX,fZ,d_two,thickness,max_stress,max_stress_w,thick_wall,mY,clearance,rows,length,b_w,sMin): # we are assuming center cg (0,0,0) so no need to calculate that
+    def bearing_check(n_f,fX,fZ,d_two,thickness,max_stress,max_stress_w,thick_wall,mY,clearance,rows,length,b_w,
+                      sMin,extraS=0,extraSw=0): # we are assuming center cg (0,0,0) so no need to calculate that
         f_inX = np.array([fX/n_f,0.0,0.0]) # we are also assuming same d_2 for all
         f_inZ = np.array([0.0,0.0,fZ/n_f]) # we call this for t_2 and t_wall eventually
         extraF = np.array([0.0,0.0,0.0])
@@ -102,8 +104,8 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
             #
         forces_all = f_inX + f_inZ + extraF #sign taken into account
         total_f = np.sqrt(forces_all[:,0]**2 + forces_all[:,2]**2)
-        stress = (np.max(total_f) / (d_two * thickness)) * 1e+6 #change to Pa we used mm² before
-        stress_wall = (np.max(total_f)/(d_two * thick_wall)) * 1e+6 #change to Pa
+        stress = (np.max(total_f) / (d_two * thickness)) * 1e+6 + extraS #change to Pa we used mm² before
+        stress_wall = (np.max(total_f)/(d_two * thick_wall)) * 1e+6 + extraSw #change to Pa
         ms_bear,ms_bear_w = (max_stress/stress - 1),(max_stress_w/stress_wall - 1)
         passed_plate = True if stress <= max_stress else False
         passed_wall = True if stress_wall <= max_stress_w else False
@@ -168,7 +170,7 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
 
         comp = delta_att/(delta_att + delta_b)
         good = True if comp < max_f else False
-        return good
+        return good, comp
 
     def mass_calc(bolt_m,main_m,sc_m,thick_plate,l,b_diam,nrows,t1,w_flange,d_one,extra):
         n_fast = sum(nrows)
@@ -214,7 +216,7 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
                 for d_2 in config["d2_list"]: #for each top. config we try all d_2s
                     t_extra = 0
                     max_in_column = max(rows_cfg)
-                    number = 2 * sum(rows_cfg) #number of fastners total
+                    number = 2 * sum(rows_cfg) #number of fasteners total
                     s_min = 2 * d_2
                     clear = 1.5 * d_2
                     # we check that the bolt sizes actually fit in the height w, if they don't onto the next d_2
@@ -228,12 +230,12 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
                     def get_best_bearing(b_curr_t2,b_twall,b_t_extra,b_t_extra_max,b_curr_length,
                                         b_number, b_forceX, b_forceZ, b_d_2,
                                         b_max_STRESS, b_max_STRESS_w, b_Y_moments,b_clear,b_rows_cfg,
-                                        b_w_input,b_s_min,b_minLength,fix_t=False):
+                                        b_w_input,b_s_min,b_minLength,extS,extSw,fix_t=False):
                         failed_b = False
                         b_wall_t = b_twall + b_t_extra
                         pass_bearing,pass_b_wall,sF_bear,sF_bear_w = bearing_check(b_number, b_forceX, b_forceZ, b_d_2, b_curr_t2,
                                                                  b_max_STRESS,b_max_STRESS_w,b_wall_t,b_Y_moments,
-                                                                 b_clear,b_rows_cfg,b_curr_length,b_w_input,b_s_min)
+                                                                 b_clear,b_rows_cfg,b_curr_length,b_w_input,b_s_min,extS,extSw)
 
                         while not all((pass_bearing,pass_b_wall)): #call the function get true if passed false if not
                             if b_curr_length < max_length:  # if it fails we first ALWAYS check if we can increase length
@@ -251,7 +253,7 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
                                         failed_b = True
                                         break
                                 else:  # the wall failed and we at max Length
-                                    if b_t_extra < t_extra_max:
+                                    if b_t_extra < b_t_extra_max:
                                         b_t_extra += 1
                                         b_wall_t = b_twall + b_t_extra  # we reset the length after increased thickness
                                         b_curr_length = b_minLength
@@ -262,13 +264,14 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
                             if not failed_b: #only run if we actually have valid inputs
                                 pass_bearing, pass_b_wall,sF_bear,sF_bear_w = bearing_check(b_number, b_forceX, b_forceZ, b_d_2, b_curr_t2,
                                                                  b_max_STRESS,b_max_STRESS_w,b_wall_t,b_Y_moments,
-                                                                 b_clear,b_rows_cfg,b_curr_length,b_w_input,b_s_min)
+                                                                 b_clear,b_rows_cfg,b_curr_length,b_w_input,b_s_min,extS,extSw)
                         return b_curr_t2,b_t_extra,b_curr_length,failed_b,sF_bear,sF_bear_w
                     #outside function
                     curr_t2,t_extra,curr_length,failed_bearing,sf_bear,sf_bear_w = get_best_bearing(curr_t2,twall,t_extra,
                                                          t_extra_max,curr_length,
                                                          number,forceX[0], forceZ[2], d_2, max_STRESS,
-                                                         max_STRESS_w,all_moments[1],clear,rows_cfg,w_input,s_min,abs_minLength)
+                                                         max_STRESS_w,all_moments[1],clear,rows_cfg,
+                                                         w_input,s_min,abs_minLength,0.0,0.0)
 
                     if failed_bearing: continue
                     # we must now try the pullout check with our latest t_2
@@ -289,7 +292,7 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
                                     curr_length = abs_minLength
                                     _,_,curr_length,*_,sf_bear,sf_bear_w = get_best_bearing(curr_t2,twall,t_extra,t_extra_max,curr_length,
                                                          number,forceX[0], forceZ[2], d_2, max_STRESS,max_STRESS_w,
-                                                        all_moments[1],clear,rows_cfg,w_input,s_min,abs_minLength,True)
+                                                        all_moments[1],clear,rows_cfg,w_input,s_min,abs_minLength,0.0,0.0,True)
                                     # reset length with new t_2, min length for new bearing done by function
                                 else:
                                     failed_pullout = True
@@ -316,9 +319,40 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
                     max_force_ratio = 0.3
                     hexagonal = True  # hex and cyl
                     n_tightened = True
-                    if not compliance_check(bolt_material[index],wall_t,curr_t2,d_2,main_material,space_material,
-                                            size_factor,hexagonal,n_tightened,max_force_ratio):
+                    pass_compliance,comp = compliance_check(bolt_material[index],wall_t,curr_t2,d_2,main_material,space_material,
+                                            size_factor,hexagonal,n_tightened,max_force_ratio)
+                    if not pass_compliance:
                         continue #the only way to decrease compliance is by increasing d_2 so we do that
+
+                    m_s_bearing, m_s_bearing_w = (sf_bear+1)*max_STRESS,(sf_bear_w+1)*max_STRESS_w
+                    pass_thermal,pass_thermal_w,ext_S,ext_S_w = run(d_2,curr_t2,wall_t,m_s_bearing,m_s_bearing_w,max_STRESS,max_STRESS_w,comp,
+                    main_material["elasticity"],bolt_material[index]["expansion"],main_material["expansion"])
+                    #if it fails we have to increase t2 and/or t_wall and rerun the loop again with a new thickness
+                    if not all((pass_thermal,pass_thermal_w)):
+                        if curr_length < max_length:
+                            curr_length += 1 #we try decreasing the bearing stress before addressing thermal
+                        else:
+                            if not pass_thermal:
+                                if curr_t2 < max_t2:
+                                    curr_t2 += 1
+                                    curr_length = abs_minLength
+                                    curr_t2, t_extra, curr_length, failed_bearing, sf_bear, sf_bear_w = get_best_bearing(
+                                        curr_t2, twall, t_extra,t_extra_max, curr_length,
+                                        number, forceX[0], forceZ[2], d_2, max_STRESS,max_STRESS_w, all_moments[1],
+                                        clear, rows_cfg, w_input, s_min, abs_minLength,ext_S,ext_S_w)
+                                else: #try next d2 see if the bearing stresses are lower
+                                    continue
+                            if not pass_thermal_w:
+                                if t_extra < t_extra_max:
+                                    t_extra += 1
+                                    curr_length = abs_minLength
+                                    wall_t = twall + t_extra
+                                    curr_t2, t_extra, curr_length, failed_bearing, sf_bear, sf_bear_w = get_best_bearing(
+                                        curr_t2, twall, t_extra, t_extra_max, curr_length, number, forceX[0],
+                                        forceZ[2], d_2, max_STRESS,max_STRESS_w, all_moments[1], clear, rows_cfg,
+                                        w_input, s_min, abs_minLength,ext_S,ext_S_w)
+                                else: #try next d2
+                                    continue
 
                     #if the design has made it this far it has passed, now we need a mass calc to rank all decent results
                     mass_i = mass_calc(bolt_material[index],main_material,space_material["density"],curr_t2,
@@ -352,11 +386,28 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
                         "Flange Thickness (mm)"]
         sheet_names = [dic["name"] for dic in bolt_material] #array of material names one for each sheet
         fileName = f'Hinge_{main_material["name"]}_combinations.xlsx'
+        numpy_export = []
         with pd.ExcelWriter(fileName) as writer: #open the excel file and write on it
             for a, combinations in enumerate(all_info): #loop over materials and combinations is the big ass list inside
                 dataFrame = pd.DataFrame(combinations,columns = header_names)
                 name_sheet = sheet_names[a] #each sheet will have the name of the material for the fastener
                 dataFrame.to_excel(writer,sheet_name = name_sheet,index = False)
+                #np
+                combinationss = np.array([combinations])
+                np.savez(f'{a}_numpy_file',
+                         t2 = combinationss[:,0],
+                         length = combinationss[:,1],
+                         d2 = combinationss[:,2],
+                         mass = combinationss[:,3],
+                         ms_bearing = combinationss[:,4],
+                         ms_bearing_wall = combinationss[:,5],
+                         ms_pullout = combinationss[:,6],
+                         ms_pullout_wall = combinationss[:,7],
+                         config = combinationss[:,8],
+                         height = combinationss[:,9],
+                         d1 = combinationss[:,10],
+                         t1 = combinationss[:,11]
+                         )
 
     print("Done")
     return all_info #path to file
