@@ -8,11 +8,11 @@ loads:
   MZ: 5.6
 geometry:
   D_min: 0.001
-  D_max: 0.01
-  W_min: 0.001
-  W_max: 0.01
-  T_min: 0.001
-  T_max: 0.01
+  D_max: 0.05
+  W_min: 0.03
+  W_max: 0.10
+  T_min: 0.01
+  T_max: 0.10
   N: 100
   D2_min: 0.01
   D2_max: 0.04

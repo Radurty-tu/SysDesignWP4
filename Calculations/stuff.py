@@ -203,6 +203,7 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
         last_info = []
         for p in range(len(unique_wtd)): #feeds the system a given combination of w,t1,d1
             w_input = unique_wtd[p, 0]
+            print("fixed")
             t1_input = unique_wtd[p, 1]
             d1_input = unique_wtd[p, 2]
             s = 1 * d1_input  # the distance from face of backplate to the edge of d_1, k=1 as a conservative value
@@ -210,6 +211,7 @@ def run(config,geometry,loads,loadFilePath,export=True): #change the export to f
             for config in bolt_configs: # for one loop we have a given topological configuration
                 rows_cfg = config["rows"]
                 rows_id = config["ID"]
+                print("config")
                 d_2_best_comb = [] #fixed for a given w,t1,d1 and config, this also resets after each d_2 full loop
                 for d_2 in config["d2_list"]: #for each top. config we try all d_2s
                     t_extra = 0
