@@ -1,4 +1,4 @@
-'''
+    '''
 Black box diagram
 kinda got tired of doing these
 
@@ -34,7 +34,6 @@ def run(config,geometry,loads):
     alpha_fastner=config["a_b"]
     alpha_clamped=config["a_c"]
     Eb=config["Eb"]
-    Lj=geometry["Lj"]
     phi=config["phi"]
     
     FdTmin=(alpha_clamped-alpha_fastner)*delta_T_min*Eb*Asm*(1-phi)

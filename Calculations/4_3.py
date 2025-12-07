@@ -47,7 +47,6 @@ def run(config,geometry,loads):
     FX = loads["FX"]
     FY = loads["FY"]
     FZ = loads["FZ"]
-    F1 = loads["F1"]
     MX = loads["MX"]
     
     FTU= config["FTU"]
@@ -86,7 +85,7 @@ def run(config,geometry,loads):
     Pbru_grid = KBRU_grid * FTU * Abr_grid
     P_ult_grid = np.minimum(Pu_grid, Pbru_grid)
     Ptu_grid = K_tu_grid * FTU * Abr_grid   
-    Ra_grid = (FY + F1) / (P_ult_grid * 2.0)
+    Ra_grid = (FY) / (P_ult_grid)
     Rtr_grid = np.sqrt(FZ**2 + FX**2)/(Ptu_grid)/2
     Metric_grid = Ra_grid**1.6 + Rtr_grid**1.6
     MS_grid = np.zeros_like(Metric_grid)
@@ -142,5 +141,7 @@ def plot(file, ax):
     ax.set_ylabel("Margin of Safety")
     ax.set_title("MS vs D (W, T at mid)")
     ax.grid(True)
+    
+    
 
 
