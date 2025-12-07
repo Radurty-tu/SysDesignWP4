@@ -24,6 +24,10 @@ def plot_lug_cube(npz_path):
             W_list.append(block[..., 2][mask].ravel())
             T_list.append(block[..., 3][mask].ravel())
 
+    if not MS_list:   # no safe points
+        print("No MS > 0 in lug_scan; nothing to plot.")
+        return
+
     MS_flat = np.concatenate(MS_list)
     D_flat  = np.concatenate(D_list)
     W_flat  = np.concatenate(W_list)

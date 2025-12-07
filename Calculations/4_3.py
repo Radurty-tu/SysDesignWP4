@@ -69,9 +69,9 @@ def run(config,geometry,loads):
     A_av_grid = (W_grid - D_grid) / T_grid
     
     
-    CY= 0.6373*(T_grid/D_grid)- 0.3019
-    ZY= 20.332*(T_grid/D_grid**2) + 8.3023*(T_grid/D_grid) + 0.5995
-    KBRY_grid = (2/7) * ZY * (4 + CY) * (e_grid/D_grid - 0.5)/(e_grid/D_grid + CY)
+    #CY= 0.6373*(T_grid/D_grid)- 0.3019
+    #ZY= 20.332*(T_grid/D_grid**2) + 8.3023*(T_grid/D_grid) + 0.5995
+    #KBRY_grid = (2/7) * ZY * (4 + CY) * (e_grid/D_grid - 0.5)/(e_grid/D_grid + CY)
     
     CU= -0.0004*(D_grid/T_grid**3) + 0.0283*(D_grid/T_grid**2)- 0.5444*(D_grid/T_grid) + 2.8731
     ZU=  0.0026*(D_grid/T_grid**2)- 0.1488*(D_grid/T_grid) + 2.5401
