@@ -132,6 +132,7 @@ def run(config,geometry,loads):
     MS_min_grid = np.min(MS, axis=0)
     output_path = "../Data/fastener_bearing_scan.npz"
     np.savez(
+    output_path,
     D2_arr=D2_arr,
     t2_arr=t2_arr,
     MS_min_grid=MS_min_grid,

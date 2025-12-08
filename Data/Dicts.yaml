@@ -18,6 +18,8 @@ geometry:
   D2_max: 0.10
   T2_min: 0.02
   T2_max: 0.10
+  T3_min: 0.02
+  T3_max: 0.10
   H: 0.01
   max_length: 0.02
 config:
@@ -38,13 +40,15 @@ descriptions:
   W_max: Biggest W [m]
   T_min: Smallest T1 [m]
   T_max: Biggest T1 [m]
-  N: Fineness
-  FTU: Yield Strength [Pa]
-  Material: Which material we use
-  D2_min: '[m] what it says on the tin'
-  D2_max: '[m] some variables don''t need descriptions'
-  T2_min: '[m]'
-  T2_max: '[m]'
+  N: Fineness [/]
+  FTU: Yield Strength(legacy) [Pa] 
+  Material: Index of used material [/]
+  D2_min: 'Fastner diameter lower bound[m]'
+  D2_max: 'Fastner diameter upper bound[m]'
+  T2_min: 'Lug plate thickness lower bound[m]'
+  T2_max: 'Lug plate thickness upper bound[m]'
+  T3_min: 'Local spacecraft wall thickness lower bound[m]'
+  T3_max: 'Local spacecraft wall thickness upper bound[m]'
   max_length: '[m]'
   H: '[m]'
   as: Thermal expansion coefficient of the spacecraft wall [degree^-1]
