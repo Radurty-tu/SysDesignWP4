@@ -106,7 +106,6 @@ def run(config,geometry,loads):
 
     safe_mask = (Metric_grid < 1.0) & geom_ok & ~np.isnan(Metric_grid)
     MS_grid[safe_mask] = 1.0 / (Metric_grid[safe_mask]**0.625) - 1.0
-    RESULT_grid = np.stack((MS_grid, D_grid, W_grid, T_grid), axis=-1)
     
     
     #save
@@ -114,7 +113,7 @@ def run(config,geometry,loads):
     output_path = "./Data/lug_scan.npz"
 
     np.savez(output_path,
-            MS=RESULT_grid,
+            MS=MS_grid,
             D_arr=D_arr,
             W_arr=W_arr,
             T_arr=T_arr)
