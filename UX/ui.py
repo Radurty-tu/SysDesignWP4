@@ -5,8 +5,7 @@ from pathlib import Path
 import yaml
 import ast
 import importlib
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
+
 
 
 class LugToolUI(tk.Tk):
@@ -287,33 +286,40 @@ class LugToolUI(tk.Tk):
 
     # --- right panel unchanged ---
     def _build_right_panel(self):
-        right = ttk.LabelFrame(self, text="Graph area", padding=10)
+        right = ttk.LabelFrame(self, text="Status", padding=10)
         right.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
-    
+
         right.columnconfigure(0, weight=1)
-        right.rowconfigure(0, weight=1)
-    
-        # Matplotlib Figure/Axes embedded in Tkinter
-        self.fig = Figure(figsize=(5, 4), dpi=100)
-        self.ax = self.fig.add_subplot(111)
-        self.ax.set_title("Graphs will go here")
-    
-        self.canvas = FigureCanvasTkAgg(self.fig, master=right)
-        self.canvas.draw()
-        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
+        right.rowconfigure(0, weight=0)
+        right.rowconfigure(1, weight=1)
+
+        # status text
+        self.status_var = tk.StringVar(value="Idle.")
+        self.status_label = ttk.Label(right, textvariable=self.status_var, anchor="w")
+        self.status_label.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+
+        # indeterminate progress bar
+        self.progress = ttk.Progressbar(
+            right,
+            mode="indeterminate",
+            orient="horizontal"
+        )
+        self.progress.grid(row=1, column=0, sticky="ew")
 
 
     def _on_run_clicked(self):
         selected = self.file_var.get()
         if not selected:
+            self.status_var.set("No calculation file selected.")
             return
 
         module_name = selected.removesuffix(".py")
 
+        # import module
         try:
             mod = importlib.import_module(f"Calculations.{module_name}")
         except ImportError as e:
-            print(f"Could not import Calculations.{module_name}: {e}")
+            self.status_var.set(f"Import error: {e}")
             return
 
         # get sections from YAML editor
@@ -322,22 +328,22 @@ class LugToolUI(tk.Tk):
         geometry = sections.get("geometry", {})
         loads    = sections.get("loads",    {})
 
-        # run calculation: standardized signature run(config, geometry, loads)
+        # start status + progress
+        self.status_var.set(f"Running {module_name}...")
+        self.progress.start(10)   # 10 ms step
+        self.update_idletasks()
+
         try:
             npz_path = mod.run(config, geometry, loads)
         except Exception as e:
-            print(f"Error running {module_name}.run: {e}")
+            self.progress.stop()
+            self.status_var.set(f"Error in {module_name}.run: {e}")
             return
 
-        # plot result if module provides plot(file, ax)
-        if hasattr(mod, "plot"):
-            try:
-                mod.plot(npz_path, self.ax)
-                self.canvas.draw()
-            except Exception as e:
-                print(f"Error plotting with {module_name}.plot: {e}")
-        else:
-            print(f"Module {module_name} has no plot(file, ax) function")
+        # stop progress and report success
+        self.progress.stop()
+        self.status_var.set(f"Finished {module_name}. Output: {npz_path}")
+
 
 #[]
 

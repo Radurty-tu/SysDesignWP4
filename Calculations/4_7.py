@@ -22,7 +22,7 @@ ms_br_min minimum margin
 '''
 import numpy as np
 import math
-
+from Data import material_properties as mp
 def p4check(X_list,Z_list,D2):
     X=np.asarray(X_list,dtype=float)
     Z=np.asarray(Z_list,dtype=float)
@@ -76,8 +76,9 @@ def run(config,geometry,loads):
     t2_min = float(geometry["t2_min"])
     t2_max = float(geometry["t2_max"])
     N      = int(geometry["N"])
-    
-    sigma_allow=config["sigma_br_allow"]
+    mat=config["Material"]
+    #sigma_allow=config["sigma_br_allow"]
+    sigma_allow = mp.get_material(mat, "max_STRESS")
     tol=config["zero_tolerance"]
     X = np.asarray(X_list, dtype=float)
     Z = np.asarray(Z_list, dtype=float)
@@ -135,9 +136,12 @@ def run(config,geometry,loads):
     output_path,
     D2_arr=D2_arr,
     t2_arr=t2_arr,
-    MS_min_grid=MS_min_grid,
+    MS7=MS_min_grid,
     w_min=w_min_arr,
     L_min=L_min_arr,
     )
     return output_path
     
+def plot(file, ax):
+    #legacy
+    return

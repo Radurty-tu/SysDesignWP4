@@ -10,7 +10,8 @@ same as previous one but for out of plane. quite simple really
 
 import numpy as np
 import matplotlib.pyplot as plt
-def run(loads,geometry,config):
+from Data import material_properties as mp
+def run(config,geometry,loads):
     FY=loads["FY"]
     MZ=loads["MZ"]
     X_list=geometry["X_list"]
@@ -22,9 +23,9 @@ def run(loads,geometry,config):
     N=geometry["N"]
     D2_min = geometry["D2_min"]
     D2_max = geometry["D2_max"]
-    
-    tau2_allow=5
-    tau3_allow=5
+    mat=config["Material"]
+    tau2_allow=mp.get_material(0,"max_SHEAR")
+    tau3_allow=mp.get_material(mat,"max_SHEAR")
     
     X = np.asarray(geometry["X_list"], dtype=float)
     Z = np.asarray(geometry["Z_list"], dtype=float)
@@ -60,14 +61,18 @@ def run(loads,geometry,config):
     MS2_min_grid = np.min(MS2, axis=0)
     MS3_min_grid = np.min(MS3, axis=0)
     
-    output_path = "../Data/fastener_pullthrough_scan.npz"
+    output_path = "./Data/fastener_pullthrough_scan.npz"
     np.savez(
         output_path,
         D2_arr=D2_arr,
         t2_arr=t2_arr,
         t3_arr=t3_arr,
-        MS2_min_grid=MS2_min_grid,
-        MS3_min_grid=MS3_min_grid,
+        MS2=MS2_min_grid,
+        MS3=MS3_min_grid,
     )
 
     return output_path
+
+def plot(file, ax):
+    #legacy
+    return

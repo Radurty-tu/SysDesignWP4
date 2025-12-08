@@ -16,7 +16,7 @@ import numpy as np
 import math
 import json
 from Calculations import k_value_calculate as k
-
+from Data import material_properties as mp
 def area(D,W,T):
     At=T*(W-D)
     Abr=T*(W-D)/2
@@ -49,12 +49,12 @@ def run(config,geometry,loads):
     FZ = loads["FZ"]
     MX = loads["MX"]
     
-    FTU= config["FTU"]
+    
     #KT=config["KT"]
     #KBR=config["KBR"]
     #KTU=config["KTU"]
     Mat=config["Material"]
-    
+    FTU=mp.get_material(Mat,"max_STRESS")
     #Numpy section
     D_arr = np.linspace(D_min, D_max, N)
     W_arr = np.linspace(W_min, W_max, N)
@@ -114,7 +114,7 @@ def run(config,geometry,loads):
     output_path = "./Data/lug_scan.npz"
 
     np.savez(output_path,
-            result=RESULT_grid,
+            MS=RESULT_grid,
             D_arr=D_arr,
             W_arr=W_arr,
             T_arr=T_arr)

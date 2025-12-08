@@ -1,1 +1,5 @@
-Data/.npz
+# Ignore all __pycache__ directories
+**/__pycache__/
+
+# Ignore all .npz files in /Data
+/Data/**/*.npz

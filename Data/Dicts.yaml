@@ -8,22 +8,30 @@ loads:
   MZ: 5.6
 geometry:
   D_min: 0.001
-  D_max: 0.050
+  D_max: 0.05
   W_min: 0.03
-  W_max: 0.10
+  W_max: 0.1
   T_min: 0.01
-  T_max: 0.10
-  N: 4
+  T_max: 0.1
+  N: 150
   D2_min: 0.03
-  D2_max: 0.10
+  D2_max: 0.1
   t2_min: 0.02
-  t2_max: 0.10
+  t2_max: 0.1
   t3_min: 0.02
-  t3_max: 0.10
+  t3_max: 0.1
   H: 0.01
-  X_list: [0.03,0.03,-0.03,-0.03]
-  Z_list: [0.015,-0.015,0.015,-0.015]
-  
+  X_list:
+  - 0.03
+  - 0.03
+  - -0.03
+  - -0.03
+  Z_list:
+  - 0.015
+  - -0.015
+  - 0.015
+  - -0.015
+  size_factor: 1.5
   max_length: 0.02
 config:
   FTU: 250000000.0
@@ -46,16 +54,17 @@ descriptions:
   T_min: Smallest T1 [m]
   T_max: Biggest T1 [m]
   N: Fineness [/]
-  FTU: Yield Strength(legacy) [Pa] 
+  FTU: Yield Strength(legacy) [Pa]
   Material: Index of used material [/]
-  D2_min: 'Fastner diameter lower bound[m]'
-  D2_max: 'Fastner diameter upper bound[m]'
-  T2_min: 'Lug plate thickness lower bound[m]'
-  T2_max: 'Lug plate thickness upper bound[m]'
-  T3_min: 'Local spacecraft wall thickness lower bound[m]'
-  T3_max: 'Local spacecraft wall thickness upper bound[m]'
+  D2_min: Fastner diameter lower bound[m]
+  D2_max: Fastner diameter upper bound[m]
+  T2_min: Lug plate thickness lower bound[m]
+  T2_max: Lug plate thickness upper bound[m]
+  T3_min: Local spacecraft wall thickness lower bound[m]
+  T3_max: Local spacecraft wall thickness upper bound[m]
   max_length: '[m]'
   H: '[m]'
   as: Thermal expansion coefficient of the spacecraft wall [degree^-1]
-  X_list: 'list of x positions of the fastners [m]'
-  Z_list: 'list of z positions of the fastners [m]'
+  X_list: list of x positions of the fastners [m]
+  Z_list: list of z positions of the fastners [m]
+  size_factor: something related to the bolt head [/]
