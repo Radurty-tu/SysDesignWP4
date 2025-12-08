@@ -65,20 +65,20 @@ def p4check(X_list,Z_list,D2):
 
 
 def run(config,geometry,loads):
-    FX=loads["FX"]
-    FZ=loads["FZ"]
-    MY=loads["MY"]
+    FX = float(loads["FX"])
+    FZ = float(loads["FZ"])
+    MY = float(loads["MY"])
     
     X_list=geometry["X_list"]
     Z_list=geometry["Z_list"]
-    D2_min=geometry["D2_min"]
-    D2_max=geometry["D2_max"]
-    t2_min=geometry["t2_min"]
-    t2_max=geometry["t2_max"]
-    N=geometry["N"]
+    D2_min = float(geometry["D2_min"])
+    D2_max = float(geometry["D2_max"])
+    t2_min = float(geometry["t2_min"])
+    t2_max = float(geometry["t2_max"])
+    N      = int(geometry["N"])
     
     sigma_allow=config["sigma_br_allow"]
-    tol=config["bearing_zero_tolerance"]
+    tol=config["zero_tolerance"]
     X = np.asarray(X_list, dtype=float)
     Z = np.asarray(Z_list, dtype=float)
     
@@ -109,8 +109,8 @@ def run(config,geometry,loads):
     Pi=np.sqrt(FXi**2 + FZi**2) #FZi!! Freddy fazbear, har har har har
     #end of 4.6
     
-    D2_arr = np.linspace(D2_min, D2_max, N)
-    t2_arr = np.linspace(t2_min, t2_max, N)
+    D2_arr = np.linspace(D2_min, D2_max, N,dtype=float)
+    t2_arr = np.linspace(t2_min, t2_max, N,dtype=float)
     
     # height_min will be used as "w" (z-direction), width_min as "L" (x-direction)
     w_min_arr = np.zeros_like(D2_arr)  # height
@@ -126,11 +126,11 @@ def run(config,geometry,loads):
             valid_D2[i] = False
     D2_grid, t2_grid = np.meshgrid(D2_arr, t2_arr, indexing="ij")
     with np.errstate(divide="ignore", invalid="ignore"):
-        denom = D2_grid[None, :, :] * t2_grid[None, :, :]      # (1,N,N)
+        denom = D2_grid[None, :, :] * t2_grid[None, :, :].astype(float)      # (1,N,N)
         sigma_br = Pi[:, None, None] / denom                   # (n,N,N)
         MS = sigma_allow / sigma_br - 1.0                      # (n,N,N)
     MS_min_grid = np.min(MS, axis=0)
-    output_path = "../Data/fastener_bearing_scan.npz"
+    output_path = "./Data/fastener_bearing_scan.npz"
     np.savez(
     output_path,
     D2_arr=D2_arr,

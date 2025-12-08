@@ -87,9 +87,6 @@ def run(config,geometry,loads):
     Pbru_grid = KBRU_grid * FTU * Abr_grid
     Ptu_grid  = K_tu_grid * FTU * Abr_grid
 
-    # Mask out non-physical points before dividing:
-    # 1) geometry invalid (W <= D)
-    # 2) zero or negative allowables
     invalid = (~geom_ok) | (Pu_grid <= 0) | (Pbru_grid <= 0) | (Ptu_grid <= 0)
 
     P_ult_grid = np.minimum(Pu_grid, Pbru_grid)
@@ -100,7 +97,6 @@ def run(config,geometry,loads):
         Ra_grid  = FY / P_ult_grid
         Rtr_grid = np.sqrt(FZ**2 + FX**2) / Ptu_grid
 
-        # Ratios should physically be >= 0; clamp negatives to NaN
         Ra_grid[Ra_grid < 0]   = np.nan
         Rtr_grid[Rtr_grid < 0] = np.nan
 
