@@ -2,7 +2,7 @@ def run_it(configA,geometry,loads,loadFilePath,export=True): #change the export 
     import numpy as np
     import pandas as pd
     import math
-    from _4_11 import run
+    from Calculations._4_11 import run
 
     forceX = np.array([loads["FX"],0.0,0.0])
     forceY = np.array([0.0,loads["FY"],0.0])
@@ -223,6 +223,25 @@ def run_it(configA,geometry,loads,loadFilePath,export=True): #change the export 
                     # we check that the bolt sizes actually fit in the height w, if they don't onto the next d_2
                     if (clear * 2) + s_min * (max_in_column-1) > w_input:
                         break #if it does not fit we exit the loop completely so higher d_2 are not tested
+
+                    # Check if max thickness and length is enough to pass, if not skip d_2
+                    max_wall_t_check = twall + t_extra_max
+                    pass_bear_max, pass_wall_max, _, _ = bearing_check(number, forceX[0], forceZ[2], d_2, max_t2,
+                                                                       max_STRESS, max_STRESS_w, max_wall_t_check,
+                                                                       all_moments[1], clear, rows_cfg, max_length,
+                                                                       w_input, s_min)
+                    if not (pass_bear_max and pass_wall_max):
+                        continue  # Bearing failed even at max dims, skip d_2
+
+                    l_arm_max = max_t2 + d1_input / 2 + s
+                    pass_pull_max, pass_p_wall_max, _, _ = pullout_check(l_arm_max, forceX, forceY, forceZ, rows_cfg,
+                                                                         clear, w_input, d_2, s_min, max_length,
+                                                                         max_SHEAR, max_SHEAR_w, max_t2,
+                                                                         max_wall_t_check, all_moments)
+                    if not (pass_pull_max and pass_p_wall_max):
+                        continue # Pullout failed even at max dims, skip d_2
+                    # ----------------- OPTIMIZATION END -----------------
+
                     wall_t = twall + t_extra
                     # we assume symmetric about cg so no moments, we can check bearing without getting r positions
                     curr_t2 = min_t2
