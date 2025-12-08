@@ -20,7 +20,8 @@ def run(loads,geometry,config):
     t3_min=geometry["t3_min"]
     t3_max=geometry["t3_max"]
     N=geometry["N"]
-    Dfi=geometry["Dfi"]
+    D2_min = geometry["D2_min"]
+    D2_max = geometry["D2_max"]
     
     tau2_allow=5
     tau3_allow=5
@@ -37,16 +38,16 @@ def run(loads,geometry,config):
     FPTy=FPy+FpMz
     #end of 4.8
     
-    
+    D2_arr = np.linspace(D2_min, D2_max, N)
     t2_arr = np.linspace(t2_min, t2_max, N)
     t3_arr = np.linspace(t3_min, t3_max, N)
-    t2_grid, t3_grid = np.meshgrid(t2_arr, t3_arr, indexing="ij")  # (N,N)
-    A2 = np.pi*Dfi*t2_grid
-    A3 = np.pi*Dfi*t3_grid
-    FPTy_3d = FPTy[:,None,None]
+    D2_grid, t2_grid, t3_grid = np.meshgrid(D2_arr, t2_arr, t3_arr, indexing="ij")
+    A2 = np.pi* D2_grid * t2_grid  # (N,N,N)
+    A3 = np.pi * D2_grid * t3_grid  # (N,N,N)
+    FPTy_4d =FPTy[:, None, None, None]
     with np.errstate(divide="ignore", invalid="ignore"):
-        tau2 = FPTy_3d / A2[None, :, :]   # (nf,N,N)
-        tau3 = FPTy_3d / A3[None, :, :]   # (nf,N,N)
+        tau2 = FPTy_4d / A2[None, :, :]   # (nf,N,N)
+        tau3 = FPTy_4d / A3[None, :, :]   # (nf,N,N)
     
     tau2_abs = np.abs(tau2)
     tau3_abs = np.abs(tau3)
@@ -56,12 +57,13 @@ def run(loads,geometry,config):
     
     MS2 = tau2_allow / tau2_abs - 1.0
     MS3 = tau3_allow / tau3_abs - 1.0
-    MS2_min_grid = np.min(MS2, axis=0)    # (N,N)
-    MS3_min_grid = np.min(MS3, axis=0)    # (N,N)
+    MS2_min_grid = np.min(MS2, axis=0)
+    MS3_min_grid = np.min(MS3, axis=0)
     
     output_path = "../Data/fastener_pullthrough_scan.npz"
     np.savez(
         output_path,
+        D2_arr=D2_arr,
         t2_arr=t2_arr,
         t3_arr=t3_arr,
         MS2_min_grid=MS2_min_grid,

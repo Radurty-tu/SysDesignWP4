@@ -14,13 +14,13 @@ if str(ROOT) not in sys.path:
 from UX import ui   # change lug_ui to your actual UI module name
 
 
-def main2():
+def main():
     app = ui.LugToolUI()
     app.mainloop()
 
 
 
-
+'''
 import yaml
 from pathlib import Path
 import Calculations.stuff as stuff  # where your run_all() or similar lives
@@ -47,7 +47,7 @@ def main():
     result = stuff.run_it(config, geometry, loads,"./Data/lug_scan.npz")
 
     return result
-
+'''
 
 if __name__ == "__main__":
     main()
