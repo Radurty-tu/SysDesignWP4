@@ -14,12 +14,12 @@ geometry:
   T_min: 0.01
   T_max: 0.1
   N: 150
-  D2_min: 0.03
-  D2_max: 0.1
-  t2_min: 0.02
-  t2_max: 0.1
-  t3_min: 0.02
-  t3_max: 0.1
+  D2_min: 0.001
+  D2_max: 0.03
+  t2_min: 0.0002
+  t2_max: 0.050
+  t3_min: 0.01
+  t3_max: 0.100
   H: 0.01
   X_list:
   - 0.03

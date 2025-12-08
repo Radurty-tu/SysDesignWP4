@@ -20,13 +20,12 @@ def main():
 
 
 
-'''
+
 import yaml
 from pathlib import Path
 import Calculations.stuff as stuff  # where your run_all() or similar lives
 
-
-def main():
+def main2():
 
     # path to your dict file
     dict_path = Path("./Data/Dicts.yaml")
@@ -47,7 +46,6 @@ def main():
     result = stuff.run_it(config, geometry, loads,"./Data/lug_scan.npz")
 
     return result
-'''
 
 if __name__ == "__main__":
     main()
