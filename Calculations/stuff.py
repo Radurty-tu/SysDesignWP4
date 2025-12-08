@@ -1,9 +1,9 @@
-def run_it(config,geometry,loads,loadFilePath,export=True): #change the export to false if you don't want an excel
+def run_it(configA,geometry,loads,loadFilePath,export=True): #change the export to false if you don't want an excel
     import numpy as np
     import pandas as pd
     import math
-    from _4_11 import run
-
+    from Calculations._4_11 import run
+    #print("config keys:", config.keys())
     forceX = np.array([loads["FX"],0.0,0.0])
     forceY = np.array([0.0,loads["FY"],0.0])
     forceZ = np.array([0.0,0.0,loads["FZ"]])
@@ -13,7 +13,7 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
     min_t2 = geometry["T2_min"]/1e-3 #in mm!
     max_length = geometry["max_length"]*1e+3 #in mm max horizontal length TBD
     twall = 0.5 #to be set
-    t_extra_max = 29
+    t_extra_max = 120
     #t_extra defined in the d2 loop
 
     size_factor = 1.5 #just the ratio between the shank and head/nut
@@ -38,7 +38,7 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
         {"name": "2024-T4", "elasticity": 73.1 * 1e+9, "density": 2780,
          "max_STRESS": 324 * 1e+6, "max_SHEAR": 283 * 1e+6,"expansion": 23.2*1e-6 },
     ]
-    main_material = bolt_material[config["Material"]] #get the material
+    main_material = bolt_material[configA["Material"]] #get the material
     mp_i = 0
     for pos,dictionary in enumerate(bolt_material):
         if main_material["name"] == dictionary["name"]:
@@ -197,7 +197,7 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
 
     ##########
     all_info = []
-    for index in range(len(bolt_material)): #iterate over every bolt material available
+    for index in range(1): #iterate over every bolt material available
         max_STRESS = bolt_material[index]["max_STRESS"]
         max_SHEAR = bolt_material[index]["max_SHEAR"]
         max_STRESS_w = main_material["max_STRESS"]
@@ -206,6 +206,7 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
         for p in range(len(unique_wtd)): #feeds the system a given combination of w,t1,d1
             w_input = unique_wtd[p, 0]
             print("fixed")
+            print(index)
             t1_input = unique_wtd[p, 1]
             d1_input = unique_wtd[p, 2]
             s = 1 * d1_input  # the distance from face of backplate to the edge of d_1, k=1 as a conservative value
@@ -214,6 +215,7 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
                 rows_cfg = config["rows"]
                 rows_id = config["ID"]
                 print("config")
+                print(rows_id)
                 d_2_best_comb = [] #fixed for a given w,t1,d1 and config, this also resets after each d_2 full loop
                 for d_2 in config["d2_list"]: #for each top. config we try all d_2s
                     t_extra = 0
@@ -275,18 +277,21 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
                                                          max_STRESS_w,all_moments[1],clear,rows_cfg,
                                                          w_input,s_min,abs_minLength,0.0,0.0)
 
-                    if failed_bearing: continue
+                    if failed_bearing: #continue
+                        print("bearing failed for d_2 =", d_2, "but keeping it for debug")
                     # we must now try the pullout check with our latest t_2
                     current_min_length = curr_length #from bearing check
                     l_arm = curr_t2 + d1_input/2 + s #the length from force to shear plane
                     failed_pullout = False
-                    pass_pullout, pass_p_wall,*_ = pullout_check(l_arm,forceX,forceY,forceZ,rows_cfg,clear,
+                    pass_pullout, pass_p_wall,sf_pull,sf_pull_w = pullout_check(l_arm,forceX,forceY,forceZ,rows_cfg,clear,
                                             w_input,d_2,s_min,curr_length,max_SHEAR,max_SHEAR_w,
                                                               curr_t2,wall_t,all_moments) #this must get the positions and new length so basically all
                     while not all((pass_pullout,pass_p_wall)):
+                        print(t_extra,"top of loop")
                         if curr_length < max_length: #if it fails we first ALWAYS check if we can increase length
                             curr_length += 1
-                        else: #if we cannot we distinguish between backplate and wall
+                        else:
+                            print(t_extra,"else")#if we cannot we distinguish between backplate and wall
                             if not pass_pullout: #if the plate fails increase t2
                                 if curr_t2 < max_t2:
                                     curr_t2 += 1  # increase t_2 and try again
@@ -299,36 +304,40 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
                                 else:
                                     failed_pullout = True
                                     break
-                            else: #the wall failed and we at max Length
-                                if t_extra < t_extra_max:
+                            if not pass_p_wall: #the wall failed and we at max Length
+                                
+                                if (t_extra < t_extra_max):
+                                    
                                     t_extra += 1
                                     wall_t = twall + t_extra #we rest the length after increase in thickness
                                     curr_length = abs_minLength
                                     _,_,curr_length,*_,sf_bear,sf_bear_w = get_best_bearing(curr_t2, twall, t_extra, t_extra_max,curr_length,
                                                           number, forceX[0], forceZ[2], d_2, max_STRESS,max_STRESS_w,
-                                                          all_moments[1], clear, rows_cfg,w_input,s_min,abs_minLength,True)
+                                                          all_moments[1], clear, rows_cfg,w_input,s_min,abs_minLength,0.0,0.0,True)
                                     # reset length with new t_wall, min length for new bearing
                                 else:
                                     failed_pullout = True
+                                    
                                     break #try for higher d2
                         #outside main if
                         if not failed_pullout:  # only run if we actually have valid inputs
                             pass_pullout, pass_p_wall,sf_pull,sf_pull_w = pullout_check(l_arm, forceX, forceY, forceZ, rows_cfg, clear,
                                                                   w_input, d_2, s_min, curr_length, max_SHEAR, max_SHEAR_w,
                                                                   curr_t2,wall_t,all_moments)  # this must get the positions and new length so basically all
-                    if failed_pullout: continue
+                    if failed_pullout: #continue
+                        print("pullout failed for d_2 =", d_2, "but keeping it for debug")
                     # we now check the compliance, the max value is 0.3 which can be changed
                     max_force_ratio = 0.3
                     hexagonal = True  # hex and cyl
                     n_tightened = True
                     pass_compliance,comp = compliance_check(bolt_material[index],wall_t,curr_t2,d_2,main_material,space_material,
                                             size_factor,hexagonal,n_tightened,max_force_ratio)
-                    if not pass_compliance:
-                        continue #the only way to decrease compliance is by increasing d_2 so we do that
+                    #if not pass_compliance:
+                        #continue #the only way to decrease compliance is by increasing d_2 so we do that
 
                     m_s_bearing, m_s_bearing_w = (sf_bear+1)*max_STRESS,(sf_bear_w+1)*max_STRESS_w
-                    pass_thermal,pass_thermal_w,ext_S,ext_S_w = run(d_2,curr_t2,wall_t,m_s_bearing,m_s_bearing_w,max_STRESS,max_STRESS_w,comp,
-                    main_material["elasticity"],bolt_material[index]["expansion"],main_material["expansion"])
+                    pass_thermal,pass_thermal_w,ext_S,ext_S_w = run(configA,d_2,curr_t2,wall_t,m_s_bearing,m_s_bearing_w,max_STRESS,max_STRESS_w,comp,
+                    main_material["elasticity"],space_material["elasticity"],bolt_material[index]["expansion"],main_material["expansion"])
                     #if it fails we have to increase t2 and/or t_wall and rerun the loop again with a new thickness
                     if not all((pass_thermal,pass_thermal_w)):
                         if curr_length < max_length:
@@ -342,8 +351,8 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
                                         curr_t2, twall, t_extra,t_extra_max, curr_length,
                                         number, forceX[0], forceZ[2], d_2, max_STRESS,max_STRESS_w, all_moments[1],
                                         clear, rows_cfg, w_input, s_min, abs_minLength,ext_S,ext_S_w)
-                                else: #try next d2 see if the bearing stresses are lower
-                                    continue
+                                #else: #try next d2 see if the bearing stresses are lower
+                                    #continue
                             if not pass_thermal_w:
                                 if t_extra < t_extra_max:
                                     t_extra += 1
@@ -353,14 +362,14 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
                                         curr_t2, twall, t_extra, t_extra_max, curr_length, number, forceX[0],
                                         forceZ[2], d_2, max_STRESS,max_STRESS_w, all_moments[1], clear, rows_cfg,
                                         w_input, s_min, abs_minLength,ext_S,ext_S_w)
-                                else: #try next d2
-                                    continue
+                               #else: #try next d2
+                                    #continue
 
                     #if the design has made it this far it has passed, now we need a mass calc to rank all decent results
                     mass_i = mass_calc(bolt_material[index],main_material,space_material["density"],curr_t2,
                                        curr_length,d_2,rows_cfg,t1_input,
                                      w_input,d1_input,t_extra)
-                    info = [curr_t2,curr_length,d_2,mass_i,sf_bear,sf_bear_w,sf_pull,sf_pull_w]
+                    info = [curr_t2,curr_length,d_2,mass_i,sf_bear,sf_bear_w,sf_pull,sf_pull_w,comp]
                     d_2_best_comb.append(info)
 
                 #we are outside the d_2 loop so the d_2 list has all d_2 values for a given config and fixed vals
@@ -383,33 +392,38 @@ def run_it(config,geometry,loads,loadFilePath,export=True): #change the export t
         #export to excell
     if export:
         header_names = ["Plate Thickness 2 (mm)","Plate Length (mm)","Fastener Diameter (mm)",
-                        "Mass (kg)","MS Bearing Plate","MS Bearing Wall","MS Pullout Plate","MS Pullout Wall",
+                        "Mass (kg)","MS Bearing Plate","MS Bearing Wall","MS Pullout Plate","MS Pullout Wall","Compliance",
                         "Fastener Configuration","Plate Height w (mm)","Diameter Lug Hole (mm)",
                         "Flange Thickness (mm)"]
-        sheet_names = [dic["name"] for dic in bolt_material] #array of material names one for each sheet
+        sheet_names = [dic["name"] for dic in bolt_material]
         fileName = f'Hinge_{main_material["name"]}_combinations.xlsx'
-        numpy_export = []
-        with pd.ExcelWriter(fileName) as writer: #open the excel file and write on it
-            for a, combinations in enumerate(all_info): #loop over materials and combinations is the big ass list inside
-                dataFrame = pd.DataFrame(combinations,columns = header_names)
-                name_sheet = sheet_names[a] #each sheet will have the name of the material for the fastener
-                dataFrame.to_excel(writer,sheet_name = name_sheet,index = False)
-                #np
-                combinationss = np.array([combinations])
-                np.savez(f'{a}_numpy_file',
-                         t2 = combinationss[:,0],
-                         length = combinationss[:,1],
-                         d2 = combinationss[:,2],
-                         mass = combinationss[:,3],
-                         ms_bearing = combinationss[:,4],
-                         ms_bearing_wall = combinationss[:,5],
-                         ms_pullout = combinationss[:,6],
-                         ms_pullout_wall = combinationss[:,7],
-                         config = combinationss[:,8],
-                         height = combinationss[:,9],
-                         d1 = combinationss[:,10],
-                         t1 = combinationss[:,11]
-                         )
+
+        with pd.ExcelWriter(fileName) as writer:
+            for a, combinations in enumerate(all_info):
+                dataFrame = pd.DataFrame(combinations, columns=header_names)
+                name_sheet = sheet_names[a]
+                dataFrame.to_excel(writer, sheet_name=name_sheet, index=False)
+
+                # numpy export
+                if combinations:          # list non-empty
+                    combos = np.array(combinations)  # shape (n, 12)
+
+                    np.savez(f'{a}_numpy_file',
+                             t2              = combos[:, 0],
+                             length          = combos[:, 1],
+                             d2              = combos[:, 2],
+                             mass            = combos[:, 3],
+                             ms_bearing      = combos[:, 4],
+                             ms_bearing_wall = combos[:, 5],
+                             ms_pullout      = combos[:, 6],
+                             ms_pullout_wall = combos[:, 7],
+                             config          = combos[:, 8],
+                             height          = combos[:, 9],
+                             d1              = combos[:,10],
+                             t1              = combos[:,11]
+                             )
+                else:
+                    print("someone fucked up again")
 
     print("Done")
     return all_info #path to file

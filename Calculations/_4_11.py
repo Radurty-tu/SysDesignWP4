@@ -22,14 +22,14 @@ import numpy as np
 
 
 
-def run(config,D2,t2,t3,stress1,stress2,smax1,smax2,Eb,Es,phi,alpha_fastner,alpha_clamped):
+def run(config,D2,t2,t3,stress1,stress2,smax1,smax2,phi,Eb,Es,alpha_fastner,alpha_clamped):
     D2=D2/1000
     t2=t2/1000
     t3=t3/1000
     Asm=np.pi*D2**2/4
     delta_T_min=-5
     delta_T_max=15
-    alpha_spacecraft=config["a_s"]
+    alpha_spacecraft=config["as"]
     
     
     FdTminc=(alpha_clamped-alpha_fastner)*delta_T_min*Eb*Asm*(1-phi)

@@ -81,15 +81,34 @@ def run(config,geometry,loads):
     K_ty_grid = k.compute_K_ty(A_av_grid)
     K_tu_grid = k.compute_K_tu(A_av_grid, Mat)
 
+    # after computing At_grid, Abr_grid, geom_ok, K-factors:
+
     Pu_grid   = K_ty_grid * FTU * At_grid
     Pbru_grid = KBRU_grid * FTU * Abr_grid
+    Ptu_grid  = K_tu_grid * FTU * Abr_grid
+
+    # Mask out non-physical points before dividing:
+    # 1) geometry invalid (W <= D)
+    # 2) zero or negative allowables
+    invalid = (~geom_ok) | (Pu_grid <= 0) | (Pbru_grid <= 0) | (Ptu_grid <= 0)
+
     P_ult_grid = np.minimum(Pu_grid, Pbru_grid)
-    Ptu_grid = K_tu_grid * FTU * Abr_grid   
-    Ra_grid = (FY) / (P_ult_grid)
-    Rtr_grid = np.sqrt(FZ**2 + FX**2)/(Ptu_grid)/2
-    Metric_grid = Ra_grid**1.6 + Rtr_grid**1.6
+    P_ult_grid[invalid] = np.nan
+    Ptu_grid[invalid]   = np.nan
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        Ra_grid  = FY / P_ult_grid
+        Rtr_grid = np.sqrt(FZ**2 + FX**2) / Ptu_grid
+
+        # Ratios should physically be >= 0; clamp negatives to NaN
+        Ra_grid[Ra_grid < 0]   = np.nan
+        Rtr_grid[Rtr_grid < 0] = np.nan
+
+        Metric_grid = Ra_grid**1.6 + Rtr_grid**1.6
+
     MS_grid = np.zeros_like(Metric_grid)
-    safe_mask = (Metric_grid < 1.0) & geom_ok
+
+    safe_mask = (Metric_grid < 1.0) & geom_ok & ~np.isnan(Metric_grid)
     MS_grid[safe_mask] = 1.0 / (Metric_grid[safe_mask]**0.625) - 1.0
     RESULT_grid = np.stack((MS_grid, D_grid, W_grid, T_grid), axis=-1)
     

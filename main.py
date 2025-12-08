@@ -13,14 +13,14 @@ if str(ROOT) not in sys.path:
 
 from UX import ui   # change lug_ui to your actual UI module name
 
-'''
-def main():
+
+def main2():
     app = ui.LugToolUI()
     app.mainloop()
 
 
 
-'''
+
 import yaml
 from pathlib import Path
 import Calculations.stuff as stuff  # where your run_all() or similar lives
@@ -41,10 +41,10 @@ def main():
         loads = data["loads"]
     except KeyError as e:
         raise KeyError(f"Missing required key in Dicts.yaml: {e}")
-
+    print(config)
     # call your calculation function
     # replace Calculations.stuff.run_all with the real target function
-    result = stuff.run(config, geometry, loads,"./Data/lug_scan.npz")
+    result = stuff.run_it(config, geometry, loads,"./Data/lug_scan.npz")
 
     return result
 

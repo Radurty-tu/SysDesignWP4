@@ -8,22 +8,22 @@ loads:
   MZ: 5.6
 geometry:
   D_min: 0.001
-  D_max: 0.05
+  D_max: 0.050
   W_min: 0.03
   W_max: 0.10
   T_min: 0.01
   T_max: 0.10
-  N: 100
-  D2_min: 0.01
-  D2_max: 0.04
-  T2_min: 0.002
-  T2_max: 0.005
+  N: 4
+  D2_min: 0.03
+  D2_max: 0.10
+  T2_min: 0.02
+  T2_max: 0.10
   H: 0.01
   max_length: 0.02
 config:
   FTU: 250000000.0
   Material: 1
-  a_s: 0.000232
+  as: 0.000232
 descriptions:
   FX: Axial load in x [N]
   FY: Axial load in y [N]
@@ -47,4 +47,4 @@ descriptions:
   T2_max: '[m]'
   max_length: '[m]'
   H: '[m]'
-  a_s: Thermal expansion coefficient of the spacecraft wall [degree^-1]
+  as: Thermal expansion coefficient of the spacecraft wall [degree^-1]
